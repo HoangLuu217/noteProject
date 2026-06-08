@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      default: '',
     },
     fullName: {
       type: String,
@@ -21,6 +21,26 @@ const userSchema = new mongoose.Schema(
     avatar: {
       type: String,
       default: '',
+    },
+    firebaseUid: {
+      type: String,
+      default: '',
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    authProvider: {
+      type: String,
+      enum: ['local', 'google', 'firebase'],
+      default: 'firebase',
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    lastLoginAt: {
+      type: Date,
+      default: null,
     },
   },
   {
