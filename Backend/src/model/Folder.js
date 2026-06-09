@@ -6,6 +6,7 @@ const folderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+      index: true,
     },
     name: {
       type: String,
@@ -18,9 +19,11 @@ const folderSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: { createdAt: true, updatedAt: false },
+    timestamps: true,
     collection: 'folders',
   }
 );
+
+folderSchema.index({ userId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('Folder', folderSchema);
