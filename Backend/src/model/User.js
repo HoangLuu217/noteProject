@@ -34,6 +34,18 @@ const userSchema = new mongoose.Schema(
       enum: ['local', 'google', 'firebase'],
       default: 'firebase',
     },
+    accessToken: {
+      type: String,
+      default: '',
+    },
+    refreshToken: {
+      type: String,
+      default: '',
+    },
+    refreshTokenExpiresAt: {
+      type: Date,
+      default: null,
+    },
     isEmailVerified: {
       type: Boolean,
       default: false,
