@@ -2,6 +2,7 @@
 /README.md
 .env
 **/.env
+Backend/.env
 noteProject.postman_collection.json
 noteProject-folder.postman_collection.json
 NOTE-LOGIN-ID TOKEN.postman_collection.json
