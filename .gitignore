@@ -1,30 +1,18 @@
 # Dependencies
-/Backend/node_modules
-/mobile/NoteApp/node_modules
+**/node_modules/
 
 # Environment files
 .env
-/README.md
 **/.env
-Backend/.env
-/Backend/.env
-Backend/.env.local
-Backend/.env.development
-Backend/.env.production
-mobile/NoteApp/.env
-mobile/NoteApp/.env.local
-mobile/NoteApp/.env.development
-mobile/NoteApp/.env.production
-Backend/.env.example
+**/.env.local
+**/.env.development
+**/.env.production
 
 # Firebase / secrets
-Backend/src/config/firebase-service-account.json
 **/firebase-service-account.json
 
-# Postman collections exported during development
-noteProject.postman_collection.json
-noteProject-folder.postman_collection.json
-NOTE-LOGIN-ID TOKEN.postman_collection.json
+# Postman collections
+**/*.postman_collection.json
 
 # Logs
 *.log
@@ -37,3 +25,4 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+/README.md
