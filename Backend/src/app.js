@@ -5,6 +5,8 @@ const morgan = require('morgan');
 const authRoutes = require('./routes/authRoutes');
 const folderRoutes = require('./routes/folderRoutes');
 const noteRoutes = require('./routes/noteRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const tagRoutes = require('./routes/tagRoutes');
 const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
 const { sendSuccess } = require('./utils/response');
 
@@ -29,6 +31,8 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/notes', noteRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/tags', tagRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
