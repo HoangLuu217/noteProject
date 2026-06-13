@@ -75,10 +75,80 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
+const requestRegisterOtp = async (req, res, next) => {
+  try {
+    const { email, fullName } = req.body;
+    const result = await authService.requestRegisterOtp({ email, fullName });
+    return sendSuccess(res, 'OTP sent successfully', result);
+  } catch (error) {
+    if (error.statusCode) {
+      return sendError(res, error.message, error.statusCode);
+    }
+    next(error);
+  }
+};
+
+const resendRegisterOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const result = await authService.resendRegisterOtp({ email });
+    return sendSuccess(res, 'OTP resent successfully', result);
+  } catch (error) {
+    if (error.statusCode) {
+      return sendError(res, error.message, error.statusCode);
+    }
+    next(error);
+  }
+};
+
+const verifyRegisterOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const result = await authService.verifyRegisterOtp({ email, otp });
+    return sendSuccess(res, 'OTP verified successfully', result);
+  } catch (error) {
+    if (error.statusCode) {
+      return sendError(res, error.message, error.statusCode);
+    }
+    next(error);
+  }
+};
+
+const completeRegister = async (req, res, next) => {
+  try {
+    const { registrationToken, idToken } = req.body;
+    const result = await authService.completeRegister({ registrationToken, idToken });
+
+    return sendSuccess(res, 'Registration completed successfully', result);
+  } catch (error) {
+    if (
+      error.code === 'auth/argument-error' ||
+      error.code === 'auth/id-token-expired' ||
+      error.code === 'auth/invalid-id-token'
+    ) {
+      return sendError(res, 'Invalid Firebase ID token', 401);
+    }
+
+    if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
+      return sendError(res, 'Invalid or expired registration token', 401);
+    }
+
+    if (error.statusCode) {
+      return sendError(res, error.message, error.statusCode);
+    }
+
+    next(error);
+  }
+};
+
 module.exports = {
   firebaseLogin,
   refreshToken,
   logout,
   getProfile,
   updateProfile,
+  requestRegisterOtp,
+  resendRegisterOtp,
+  verifyRegisterOtp,
+  completeRegister,
 };

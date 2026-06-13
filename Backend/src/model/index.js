@@ -1,5 +1,6 @@
 module.exports = {
   User: require('./User'),
+  EmailOtp: require('./EmailOtp'),
   Folder: require('./Folder'),
   Tag: require('./Tag'),
   Note: require('./Note'),
