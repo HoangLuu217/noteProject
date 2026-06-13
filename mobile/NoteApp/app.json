@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "noteapp",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -13,18 +14,55 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.namsky.noteapp",
+      "associatedDomains": [
+        "applinks:note-f6b47.firebaseapp.com"
+      ]
     },
     "android": {
+      "package": "com.namsky.noteapp",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "noteapp"
+            },
+            {
+              "scheme": "https",
+              "host": "note-f6b47.firebaseapp.com",
+              "pathPrefix": "/__/auth/action"
+            },
+            {
+              "scheme": "https",
+              "host": "note-f6b47.firebaseapp.com",
+              "pathPrefix": "/reset-password"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép NoteApp truy cập ảnh để cập nhật avatar."
+        }
+      ]
+    ]
   }
 }

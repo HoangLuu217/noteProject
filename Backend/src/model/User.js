@@ -9,10 +9,6 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
-    password: {
-      type: String,
-      default: '',
-    },
     fullName: {
       type: String,
       required: true,
@@ -31,8 +27,8 @@ const userSchema = new mongoose.Schema(
     },
     authProvider: {
       type: String,
-      enum: ['local', 'google', 'firebase'],
-      default: 'firebase',
+      enum: ['google', 'password'],
+      default: 'password',
     },
     accessToken: {
       type: String,
