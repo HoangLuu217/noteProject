@@ -8,6 +8,7 @@ const noteRoutes = require('./routes/noteRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const tagRoutes = require('./routes/tagRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
 const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
 const { sendSuccess } = require('./utils/response');
 
@@ -35,6 +36,7 @@ app.use('/api/notes', noteRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/expenses', expenseRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
