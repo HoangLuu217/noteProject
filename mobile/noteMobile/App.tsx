@@ -10,6 +10,7 @@ import {
   Platform,
   TouchableOpacity,
   Text,
+  Alert,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -136,31 +137,26 @@ function MainApp() {
   const isFirstRender = useRef(true);
 
   const { user, accessToken, updateProfile } = useAuthStore();
-  const [avatarUrl, setAvatarUrl] = useState<any>(DEFAULT_AVATAR);
-  const [profileName, setProfileName] = useState('HoangLuu');
+  const { language } = useLanguage();
+  const [avatarUrl, setAvatarUrl] = useState<any>(
+    user?.avatar ? { uri: user.avatar } : DEFAULT_AVATAR
+  );
+  const [profileName, setProfileName] = useState(user?.fullName || 'HoangLuu');
   const [dateSelectorStyle, setDateSelectorStyle] = useState<'slider' | 'calendar'>('slider');
 
-  // Load avatar and profile name from AsyncStorage on mount
+  // Load user settings on mount
   useEffect(() => {
-    async function loadUserData() {
+    async function loadUserSettings() {
       try {
-        const savedAvatar = await AsyncStorage.getItem('@avatar_uri');
-        if (savedAvatar) {
-          setAvatarUrl(savedAvatar.startsWith('http') ? { uri: savedAvatar } : savedAvatar);
-        }
-        const savedName = await AsyncStorage.getItem('@profile_name');
-        if (savedName) {
-          setProfileName(savedName);
-        }
         const savedStyle = await AsyncStorage.getItem('@date_selector_style');
         if (savedStyle === 'slider' || savedStyle === 'calendar') {
           setDateSelectorStyle(savedStyle);
         }
       } catch (e) {
-        console.error('Failed to load user data:', e);
+        console.error('Failed to load user settings:', e);
       }
     }
-    loadUserData();
+    loadUserSettings();
   }, []);
 
   // Sync with store user
@@ -171,32 +167,56 @@ function MainApp() {
       }
       if (user.avatar) {
         setAvatarUrl({ uri: user.avatar });
+      } else {
+        setAvatarUrl(DEFAULT_AVATAR);
       }
+    } else {
+      setProfileName('HoangLuu');
+      setAvatarUrl(DEFAULT_AVATAR);
     }
   }, [user]);
 
   const handleUpdateAvatar = async (newUri: string) => {
     try {
-      setAvatarUrl(newUri.startsWith('http') ? { uri: newUri } : newUri);
-      await AsyncStorage.setItem('@avatar_uri', newUri);
       if (accessToken) {
         const { uploadAvatarImage } = require('./src/services/uploadService');
         const uploaded = await uploadAvatarImage(accessToken, newUri);
         await updateProfile({ avatar: uploaded.url });
+        Alert.alert(
+          language === 'en' ? 'Success' : 'Thành công',
+          language === 'en' ? 'Avatar updated successfully' : 'Cập nhật ảnh đại diện thành công'
+        );
       }
     } catch (e) {
+      Alert.alert(
+        language === 'en' ? 'Error' : 'Lỗi',
+        e instanceof Error ? e.message : (language === 'en' ? 'Failed to update avatar' : 'Không thể cập nhật ảnh đại diện')
+      );
       console.error('Failed to save avatar:', e);
     }
   };
 
   const handleUpdateName = async (newName: string) => {
+    if (!newName || !newName.trim()) {
+      Alert.alert(
+        language === 'en' ? 'Invalid Name' : 'Tên không hợp lệ',
+        language === 'en' ? 'Please enter a valid name' : 'Vui lòng nhập tên hợp lệ'
+      );
+      return;
+    }
     try {
-      setProfileName(newName);
-      await AsyncStorage.setItem('@profile_name', newName);
       if (accessToken) {
         await updateProfile({ fullName: newName });
+        Alert.alert(
+          language === 'en' ? 'Success' : 'Thành công',
+          language === 'en' ? 'Profile name updated successfully' : 'Cập nhật tên hiển thị thành công'
+        );
       }
     } catch (e) {
+      Alert.alert(
+        language === 'en' ? 'Error' : 'Lỗi',
+        e instanceof Error ? e.message : (language === 'en' ? 'Failed to update name' : 'Không thể cập nhật tên')
+      );
       console.error('Failed to save profile name:', e);
     }
   };
@@ -272,7 +292,11 @@ function MainApp() {
       <StatusBar style={isDark ? "light" : "dark"} backgroundColor={colors.background} />
       <BackgroundBubbles />
 
-      <TopBar avatarUrl={avatarUrl} profileName={profileName} />
+      <TopBar
+        avatarUrl={avatarUrl}
+        profileName={profileName}
+        onAvatarPress={() => handleTabChange('profile')}
+      />
 
       <View style={styles.content}>
         <View style={[styles.page, { display: activeTab === 'tasks' ? 'flex' : 'none' }]}><TasksScreen tasks={tasks} setTasks={setTasks} setSwipeEnabled={setSwipeEnabled} dateSelectorStyle={dateSelectorStyle} /></View>
@@ -286,7 +310,7 @@ function MainApp() {
   );
 }
 
-import { LanguageProvider } from './src/components/LanguageProvider';
+import { LanguageProvider, useLanguage } from './src/components/LanguageProvider';
 
 function AppContent() {
   const { isHydrated, accessToken, loadProfile, setHydrated } = useAuthStore();

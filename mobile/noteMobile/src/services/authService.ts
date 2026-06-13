@@ -2,7 +2,6 @@ import {
   confirmPasswordReset,
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
-  sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -13,7 +12,6 @@ import {
 import { getAuthInstance } from '../config/firebase';
 import { isFirebaseConfigured } from '../config/env';
 import { AuthTokens, LoginResponse, OtpRequestResponse, OtpVerifyResponse, User } from '../types/auth';
-import { getPasswordResetActionCodeSettings } from '../utils/authLink';
 import { apiRequest } from './apiClient';
 import { ApiError } from '../types/api';
 
@@ -42,8 +40,10 @@ export const loginWithEmail = async (
 };
 
 export const sendPasswordReset = async (email: string): Promise<void> => {
-  const auth = ensureFirebaseAuth();
-  await sendPasswordResetEmail(auth, email.trim(), getPasswordResetActionCodeSettings());
+  await apiRequest<void>('/auth/forgot-password', {
+    method: 'POST',
+    body: { email: email.trim() },
+  });
 };
 
 export const verifyPasswordReset = async (oobCode: string): Promise<string> => {

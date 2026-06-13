@@ -142,10 +142,16 @@ export const useAuthStore = create<AuthState>()(
         const { accessToken } = get();
         try {
           if (accessToken) await logoutFromServer(accessToken);
-        } catch {
-          // clear local session even if server logout fails
+        } catch (err) {
+          console.error('Server logout failed:', err);
         }
-        await logoutFromFirebase();
+        
+        try {
+          await logoutFromFirebase();
+        } catch (err) {
+          console.error('Firebase logout failed:', err);
+        }
+        
         set({ user: null, accessToken: null, refreshToken: null, pendingRegistration: null });
       },
 

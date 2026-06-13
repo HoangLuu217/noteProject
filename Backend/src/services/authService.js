@@ -109,8 +109,8 @@ const upsertUserFromFirebase = async (
     });
   } else {
     user.firebaseUid = firebaseUid;
-    user.fullName = fullName || user.fullName;
-    user.avatar = avatar || user.avatar;
+    user.fullName = fullNameOverride || user.fullName || fullName;
+    user.avatar = user.avatar || avatar;
     user.authProvider = authProvider;
     user.isEmailVerified = isEmailVerified || user.isEmailVerified;
     user.lastLoginAt = new Date();
@@ -305,18 +305,46 @@ const logout = async (user) => {
 const updateProfile = async (user, payload) => {
   const { fullName, avatar } = payload;
 
+  console.log(`[Profile Update] User ID: ${user._id}, Email: ${user.email}`);
+
   if (typeof fullName === 'string' && fullName.trim()) {
+    console.log(`[Profile Update] Updating name: "${user.fullName}" -> "${fullName.trim()}"`);
     user.fullName = fullName.trim();
   }
 
   if (typeof avatar === 'string') {
+    console.log(`[Profile Update] Updating avatar URL`);
     user.avatar = avatar;
   }
 
   user.lastLoginAt = user.lastLoginAt || new Date();
   await user.save();
-
+  console.log(`[Profile Update] Saved successfully for User ID: ${user._id}`);
   return normalizeUser(user);
+};
+
+const sendPasswordResetEmailCustom = async (email) => {
+  if (!email?.trim()) {
+    throw createHttpError('Email is required', 400);
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  const user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    throw createHttpError('Email không tồn tại trên hệ thống', 404);
+  }
+
+  const admin = initializeFirebaseAdmin();
+  const resetLink = await admin.auth().generatePasswordResetLink(normalizedEmail, {
+    url: 'https://note-f6b47.firebaseapp.com/__/auth/action',
+  });
+
+  const { sendResetPasswordEmail } = require('./emailService');
+  await sendResetPasswordEmail({
+    email: normalizedEmail,
+    fullName: user.fullName,
+    resetLink,
+  });
 };
 
 module.exports = {
@@ -329,4 +357,5 @@ module.exports = {
   logout,
   updateProfile,
   normalizeUser,
+  sendPasswordResetEmailCustom,
 };

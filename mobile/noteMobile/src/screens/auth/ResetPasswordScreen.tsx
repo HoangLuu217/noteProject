@@ -7,9 +7,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthButton } from '../../components/auth/AuthButton';
 import { AuthInput } from '../../components/auth/AuthInput';
 import { BackgroundBubbles } from '../../components/BackgroundBubbles';
@@ -21,6 +22,7 @@ import {
 } from '../../services/authService';
 import { parsePasswordResetLink } from '../../utils/authLink';
 import { useTheme } from '../../components/ThemeProvider';
+import { useLanguage } from '../../components/LanguageProvider';
 
 interface ResetPasswordScreenProps {
   onNavigate: (screen: 'login' | 'register' | 'forgot-password' | 'verify-otp' | 'reset-password', params?: any) => void;
@@ -29,6 +31,8 @@ interface ResetPasswordScreenProps {
 
 export function ResetPasswordScreen({ onNavigate, routeParams }: ResetPasswordScreenProps) {
   const { colors } = useTheme();
+  const { language } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [oobCode, setOobCode] = useState(routeParams?.oobCode ?? '');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,7 +51,7 @@ export function ResetPasswordScreen({ onNavigate, routeParams }: ResetPasswordSc
 
     const bootstrap = async () => {
       if (!isFirebaseConfigured()) {
-        setLinkError('Firebase chưa được cấu hình');
+        setLinkError(language === 'en' ? 'Firebase configuration missing' : 'Firebase chưa được cấu hình');
         setCheckingLink(false);
         return;
       }
@@ -67,7 +71,7 @@ export function ResetPasswordScreen({ onNavigate, routeParams }: ResetPasswordSc
     });
 
     return () => subscription.remove();
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     const validateCode = async () => {
@@ -90,16 +94,24 @@ export function ResetPasswordScreen({ onNavigate, routeParams }: ResetPasswordSc
 
   const validate = () => {
     const next: Record<string, string> = {};
-    if (!password) next.password = 'Vui lòng nhập mật khẩu mới';
-    else if (password.length < 6) next.password = 'Mật khẩu tối thiểu 6 ký tự';
-    if (password !== confirmPassword) next.confirmPassword = 'Mật khẩu xác nhận không khớp';
+    if (!password) {
+      next.password = language === 'en' ? 'Please enter a new password' : 'Vui lòng nhập mật khẩu mới';
+    } else if (password.length < 6) {
+      next.password = language === 'en' ? 'Password must be at least 6 characters' : 'Mật khẩu tối thiểu 6 ký tự';
+    }
+    if (password !== confirmPassword) {
+      next.confirmPassword = language === 'en' ? 'Confirm password does not match' : 'Mật khẩu xác nhận không khớp';
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const handleReset = async () => {
     if (!oobCode) {
-      Alert.alert('Liên kết không hợp lệ', 'Vui lòng mở lại liên kết từ email hoặc gửi email mới.');
+      Alert.alert(
+        language === 'en' ? 'Invalid Link' : 'Liên kết không hợp lệ',
+        language === 'en' ? 'Please reopen the link from your email or request a new reset email.' : 'Vui lòng mở lại liên kết từ email hoặc gửi email mới.'
+      );
       return;
     }
     if (!validate()) return;
@@ -107,11 +119,18 @@ export function ResetPasswordScreen({ onNavigate, routeParams }: ResetPasswordSc
     setLoading(true);
     try {
       await applyPasswordReset(oobCode, password);
-      Alert.alert('Thành công', 'Mật khẩu đã được đặt lại. Bạn có thể đăng nhập ngay.', [
-        { text: 'Đăng nhập', onPress: () => onNavigate('login') },
-      ]);
+      Alert.alert(
+        language === 'en' ? 'Success' : 'Thành công',
+        language === 'en' ? 'Password has been reset. You can log in now.' : 'Mật khẩu đã được đặt lại. Bạn có thể đăng nhập ngay.',
+        [
+          { text: language === 'en' ? 'Login' : 'Đăng nhập', onPress: () => onNavigate('login') },
+        ]
+      );
     } catch (error) {
-      Alert.alert('Đặt lại thất bại', getFirebaseErrorMessage(error));
+      Alert.alert(
+        language === 'en' ? 'Reset Failed' : 'Đặt lại thất bại',
+        getFirebaseErrorMessage(error)
+      );
     } finally {
       setLoading(false);
     }
@@ -122,7 +141,9 @@ export function ResetPasswordScreen({ onNavigate, routeParams }: ResetPasswordSc
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <BackgroundBubbles />
         <View style={styles.centered}>
-          <Text style={[styles.subtitle, { color: colors.outline }]}>Đang xác thực liên kết...</Text>
+          <Text style={[styles.subtitle, { color: colors.outline }]}>
+            {language === 'en' ? 'Verifying link...' : 'Đang xác thực liên kết...'}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -132,16 +153,35 @@ export function ResetPasswordScreen({ onNavigate, routeParams }: ResetPasswordSc
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <BackgroundBubbles />
+        <TouchableOpacity
+          style={[
+            styles.absoluteBackBtn,
+            {
+              top: insets.top > 0 ? insets.top + 8 : 16,
+            }
+          ]}
+          onPress={() => onNavigate('login')}
+        >
+          <Text style={[styles.link, { color: colors.primary }]}>
+            {language === 'en' ? '← Back' : '← Quay lại'}
+          </Text>
+        </TouchableOpacity>
+
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-          <Text style={[styles.title, { color: colors.onSurface }]}>Liên kết không hợp lệ</Text>
+          <Text style={[styles.title, { color: colors.onSurface }]}>
+            {language === 'en' ? 'Invalid Link' : 'Liên kết không hợp lệ'}
+          </Text>
           <Text style={[styles.subtitle, { color: colors.outline }]}>
-            {linkError || 'Không tìm thấy mã đặt lại mật khẩu. Hãy mở liên kết trực tiếp từ email.'}
+            {linkError || (language === 'en' ? 'Reset code not found. Please open the link directly from your email.' : 'Không tìm thấy mã đặt lại mật khẩu. Hãy mở liên kết trực tiếp từ email.')}
           </Text>
 
           <View style={[styles.card, { backgroundColor: colors.surfaceContainerLowest, borderColor: 'rgba(0, 0, 0, 0.05)' }]}>
-            <AuthButton title="Gửi lại email" onPress={() => onNavigate('forgot-password')} />
+            <AuthButton 
+              title={language === 'en' ? 'Resend email' : 'Gửi lại email'} 
+              onPress={() => onNavigate('forgot-password')} 
+            />
             <AuthButton
-              title="Về đăng nhập"
+              title={language === 'en' ? 'Back to login' : 'Về đăng nhập'}
               onPress={() => onNavigate('login')}
               variant="danger"
               style={styles.secondaryButton}
@@ -155,33 +195,53 @@ export function ResetPasswordScreen({ onNavigate, routeParams }: ResetPasswordSc
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <BackgroundBubbles />
+      <TouchableOpacity
+        style={[
+          styles.absoluteBackBtn,
+          {
+            top: insets.top > 0 ? insets.top + 8 : 16,
+          }
+        ]}
+        onPress={() => onNavigate('login')}
+      >
+        <Text style={[styles.link, { color: colors.primary }]}>
+          {language === 'en' ? '← Back' : '← Quay lại'}
+        </Text>
+      </TouchableOpacity>
+
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Text style={[styles.title, { color: colors.onSurface }]}>Đặt lại mật khẩu</Text>
+          <Text style={[styles.title, { color: colors.onSurface }]}>
+            {language === 'en' ? 'Reset Password' : 'Đặt lại mật khẩu'}
+          </Text>
           <Text style={[styles.subtitle, { color: colors.outline }]}>
-            Tạo mật khẩu mới cho tài khoản{'\n'}
+            {language === 'en' ? 'Create a new password for account' : 'Tạo mật khẩu mới cho tài khoản'}{'\n'}
             <Text style={[styles.email, { color: colors.onSurface }]}>{email}</Text>
           </Text>
 
           <View style={[styles.card, { backgroundColor: colors.surfaceContainerLowest, borderColor: 'rgba(0, 0, 0, 0.05)' }]}>
             <AuthInput
-              label="Mật khẩu mới"
+              label={language === 'en' ? 'New password' : 'Mật khẩu mới'}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              placeholder="Tối thiểu 6 ký tự"
+              placeholder={language === 'en' ? 'At least 6 characters' : 'Tối thiểu 6 ký tự'}
               error={errors.password}
             />
             <AuthInput
-              label="Xác nhận mật khẩu"
+              label={language === 'en' ? 'Confirm password' : 'Xác nhận mật khẩu'}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
-              placeholder="Nhập lại mật khẩu"
+              placeholder={language === 'en' ? 'Re-enter password' : 'Nhập lại mật khẩu'}
               error={errors.confirmPassword}
             />
 
-            <AuthButton title="Đặt lại mật khẩu" onPress={handleReset} loading={loading} />
+            <AuthButton 
+              title={language === 'en' ? 'Reset password' : 'Đặt lại mật khẩu'} 
+              onPress={handleReset} 
+              loading={loading} 
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -208,4 +268,11 @@ const styles = StyleSheet.create({
   },
   email: { fontFamily: 'Quicksand-Bold' },
   secondaryButton: { marginTop: 16 },
+  absoluteBackBtn: {
+    position: 'absolute',
+    left: 20,
+    zIndex: 9999,
+    padding: 8,
+  },
+  link: { fontFamily: 'Quicksand-Bold' },
 });

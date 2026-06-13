@@ -141,6 +141,19 @@ const completeRegister = async (req, res, next) => {
   }
 };
 
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    await authService.sendPasswordResetEmailCustom(email);
+    return sendSuccess(res, 'Password reset email sent successfully');
+  } catch (error) {
+    if (error.statusCode) {
+      return sendError(res, error.message, error.statusCode);
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   firebaseLogin,
   refreshToken,
@@ -151,4 +164,5 @@ module.exports = {
   resendRegisterOtp,
   verifyRegisterOtp,
   completeRegister,
+  forgotPassword,
 };

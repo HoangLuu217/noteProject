@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../ThemeProvider';
 
 interface Props {
@@ -28,9 +28,10 @@ export function GoogleSignInButton({
       onPress={onPress}
       disabled={loading || disabled}
     >
-      <View style={[styles.icon, { borderColor: colors.outlineVariant }]}>
-        <Text style={styles.iconText}>G</Text>
-      </View>
+      <Image
+        source={require('../../../assets/google.jpg')}
+        style={styles.googleIcon}
+      />
       {loading ? (
         <ActivityIndicator color={colors.primary} />
       ) : (
@@ -57,14 +58,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   disabled: { opacity: 0.7 },
-  icon: {
+  googleIcon: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  iconText: { fontSize: 14, fontWeight: '800', color: '#4285F4' },
   label: { fontSize: 16, fontFamily: 'Quicksand-Bold' },
 });

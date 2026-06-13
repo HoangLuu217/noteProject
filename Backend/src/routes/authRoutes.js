@@ -9,6 +9,7 @@ const {
   resendRegisterOtp,
   verifyRegisterOtp,
   completeRegister,
+  forgotPassword,
 } = require('../controllers/authController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
@@ -20,6 +21,7 @@ router.post('/register/resend-otp', resendRegisterOtp);
 router.post('/register/verify-otp', verifyRegisterOtp);
 router.post('/register/complete', completeRegister);
 router.post('/refresh', refreshToken);
+router.post('/forgot-password', forgotPassword);
 router.post('/logout', authMiddleware, logout);
 router.get('/profile', authMiddleware, getProfile);
 router.put('/profile', authMiddleware, updateProfile);

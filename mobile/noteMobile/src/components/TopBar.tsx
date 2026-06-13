@@ -12,9 +12,10 @@ import { useLanguage } from './LanguageProvider';
 interface TopBarProps {
   avatarUrl: any;
   profileName: string;
+  onAvatarPress?: () => void;
 }
 
-export function TopBar({ avatarUrl, profileName }: TopBarProps) {
+export function TopBar({ avatarUrl, profileName, onAvatarPress }: TopBarProps) {
   const { colors } = useTheme();
   const { t } = useLanguage();
   const styles = useStyles(colors);
@@ -34,7 +35,7 @@ export function TopBar({ avatarUrl, profileName }: TopBarProps) {
           <Text style={styles.welcomeText}>{t('welcomeUser', { name: profileName })}</Text>
         </View>
       </View>
-      <TouchableOpacity activeOpacity={0.8}>
+      <TouchableOpacity activeOpacity={0.8} onPress={onAvatarPress}>
         <View style={styles.avatarRing}>
           <Image
             source={typeof avatarUrl === 'string' ? { uri: avatarUrl } : avatarUrl}
