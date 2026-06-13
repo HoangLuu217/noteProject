@@ -175,16 +175,17 @@ const sendResetPasswordEmail = async ({ email, fullName, resetLink }) => {
 
   const contentHtml = `
     <h1>Đặt lại mật khẩu</h1>
-    <p>Xin chào <strong>${fullName}</strong>,</p>
-    <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>ToDo</strong> của bạn. Vui lòng bấm vào nút bên dưới để tiến hành đặt mật khẩu mới:</p>
+    <p>Xin chào,</p>
+    <p>Vui lòng bấm vào nút bên dưới để đặt lại mật khẩu <strong>ToDo</strong> cho tài khoản email <strong>${email}</strong> của bạn:</p>
     <div style="margin: 20px 0;">
       <a class="btn" href="${resetLink}" target="_blank">Đặt lại mật khẩu</a>
     </div>
-    <p>Mã liên kết này chỉ có hiệu lực trong vòng <strong>60 phút</strong>. Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.</p>
+    <p>Nếu bạn không yêu cầu đặt lại mật khẩu, bạn có thể bỏ qua email này.</p>
+    <p>Cảm ơn bạn,<br>Đội ngũ ToDo</p>
   `;
 
   const html = getEmailTemplate('Đặt lại mật khẩu ToDo', contentHtml);
-  const text = `Xin chào ${fullName},\n\nVui lòng đặt lại mật khẩu của bạn bằng liên kết sau:\n${resetLink}\n\nLiên kết này có hiệu lực trong 60 phút.`;
+  const text = `Xin chào,\n\nVui lòng đặt lại mật khẩu ToDo cho tài khoản email ${email} của bạn bằng liên kết sau:\n${resetLink}\n\nNếu bạn không yêu cầu đặt lại mật khẩu, bạn có thể bỏ qua email này.\n\nCảm ơn bạn,\nĐội ngũ ToDo`;
 
   if (!isSmtpConfigured()) {
     console.log(`[PasswordReset][dev] ${email}: ${resetLink}`);
