@@ -28,6 +28,7 @@ import { FocusScreen } from './src/screens/FocusScreen';
 import { ThemeProvider, useTheme } from './src/components/ThemeProvider';
 import { Task } from './src/types';
 import { useAuthStore } from './src/stores/authStore';
+import { fetchTasksFromServer } from './src/services/taskService';
 import { LoadingScreen } from './src/components/common/LoadingScreen';
 import { LoginScreen } from './src/screens/auth/LoginScreen';
 import { RegisterScreen } from './src/screens/auth/RegisterScreen';
@@ -129,7 +130,7 @@ const INITIAL_TASKS: Task[] = [
 function MainApp() {
   const [activeTab, setActiveTab] = useState<'tasks' | 'focus' | 'notes' | 'profile'>('tasks');
   const [swipeEnabled, setSwipeEnabled] = useState(true);
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const { colors, isDark } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -137,6 +138,26 @@ function MainApp() {
   const isFirstRender = useRef(true);
 
   const { user, accessToken, updateProfile } = useAuthStore();
+
+  // Load tasks on mount or token change
+  useEffect(() => {
+    async function loadTasks() {
+      if (accessToken) {
+        console.log('📱 [Mobile] Fetching tasks from server...');
+        try {
+          const fetched = await fetchTasksFromServer(accessToken);
+          console.log(`📱 [Mobile] Fetched ${fetched.length} tasks successfully!`);
+          setTasks(fetched);
+        } catch (e) {
+          console.error('📱 [Mobile] Failed to load tasks from server:', e);
+        }
+      } else {
+        console.log('📱 [Mobile] No access token found. Resetting tasks.');
+        setTasks([]);
+      }
+    }
+    loadTasks();
+  }, [accessToken]);
   const { language } = useLanguage();
   const [avatarUrl, setAvatarUrl] = useState<any>(
     user?.avatar ? { uri: user.avatar } : DEFAULT_AVATAR
@@ -182,10 +203,6 @@ function MainApp() {
         const { uploadAvatarImage } = require('./src/services/uploadService');
         const uploaded = await uploadAvatarImage(accessToken, newUri);
         await updateProfile({ avatar: uploaded.url });
-        Alert.alert(
-          language === 'en' ? 'Success' : 'Thành công',
-          language === 'en' ? 'Avatar updated successfully' : 'Cập nhật ảnh đại diện thành công'
-        );
       }
     } catch (e) {
       Alert.alert(
@@ -207,10 +224,6 @@ function MainApp() {
     try {
       if (accessToken) {
         await updateProfile({ fullName: newName });
-        Alert.alert(
-          language === 'en' ? 'Success' : 'Thành công',
-          language === 'en' ? 'Profile name updated successfully' : 'Cập nhật tên hiển thị thành công'
-        );
       }
     } catch (e) {
       Alert.alert(

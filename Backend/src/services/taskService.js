@@ -61,7 +61,7 @@ const getTaskById = async (userId, id) => {
 };
 
 const createTask = async (userId, payload) => {
-  const { title, description = '', status, priority, dueDate } = payload;
+  const { title, description = '', status, priority, dueDate, category } = payload;
 
   if (!title || !title.trim()) {
     const error = new Error('Title is required');
@@ -77,6 +77,7 @@ const createTask = async (userId, payload) => {
 
   if (status) taskData.status = status;
   if (priority) taskData.priority = priority;
+  if (category) taskData.category = category;
   if (dueDate !== undefined) taskData.dueDate = dueDate ? new Date(dueDate) : null;
   if (status === 'done') taskData.completedAt = new Date();
 
@@ -86,7 +87,7 @@ const createTask = async (userId, payload) => {
 
 const updateTask = async (userId, id, payload) => {
   const task = await getTaskById(userId, id);
-  const { title, description, status, priority, dueDate } = payload;
+  const { title, description, status, priority, dueDate, category } = payload;
 
   if (typeof title === 'string') {
     if (!title.trim()) {
@@ -113,6 +114,10 @@ const updateTask = async (userId, id, payload) => {
 
   if (priority !== undefined) {
     task.priority = priority;
+  }
+
+  if (category !== undefined) {
+    task.category = category;
   }
 
   if (dueDate !== undefined) {

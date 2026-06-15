@@ -7,6 +7,7 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { Plus, Sparkles } from 'lucide-react-native';
 import * as Notifications from 'expo-notifications';
@@ -19,6 +20,8 @@ import { theme, createThemedStyles } from '../theme';
 import { DateSelector } from '../components/DateSelector';
 import { useTheme } from '../components/ThemeProvider';
 import { useLanguage } from '../components/LanguageProvider';
+import { useAuthStore } from '../stores/authStore';
+import { createTaskOnServer, updateTaskOnServer, deleteTaskFromServer } from '../services/taskService';
 
 
 function parseTaskDateTime(dateStr?: string, timeStr?: string): Date | null {
@@ -125,6 +128,8 @@ export function TasksScreen({
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   // Request notifications permission on mount
   useEffect(() => {
@@ -143,37 +148,59 @@ export function TasksScreen({
   }, []);
 
   const handleToggle = async (id: string) => {
-    const updatedTasks = await Promise.all(
-      tasks.map(async (task) => {
-        if (task.id === id) {
-          const nextCompleted = !task.completed;
-          let notificationId = task.notificationId;
+    if (!accessToken) return;
+    const taskToToggle = tasks.find((t) => t.id === id);
+    if (!taskToToggle) return;
 
-          if (nextCompleted) {
-            if (notificationId) {
-              await cancelNotificationForTask(notificationId);
-              notificationId = undefined;
-            }
-          } else {
-            if (task.date && task.time) {
-              notificationId = await scheduleNotificationForTask(task.title, task.date, task.time, t('taskReminder'));
-            }
-          }
+    const nextCompleted = !taskToToggle.completed;
+    try {
+      let notificationId = taskToToggle.notificationId;
 
-          return { ...task, completed: nextCompleted, notificationId };
+      if (nextCompleted) {
+        if (notificationId) {
+          await cancelNotificationForTask(notificationId);
+          notificationId = undefined;
         }
-        return task;
-      })
-    );
-    setTasks(updatedTasks);
+      } else {
+        if (taskToToggle.date && taskToToggle.time) {
+          notificationId = await scheduleNotificationForTask(taskToToggle.title, taskToToggle.date, taskToToggle.time, t('taskReminder'));
+        }
+      }
+
+      await updateTaskOnServer(accessToken, id, {
+        completed: nextCompleted,
+        notificationId,
+      });
+
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (t.id === id) {
+            return { ...t, completed: nextCompleted, notificationId };
+          }
+          return t;
+        })
+      );
+    } catch (e) {
+      console.error('Failed to toggle task:', e);
+      Alert.alert(t('error') || 'Error', 'Failed to update task status on server');
+    }
   };
 
   const handleDelete = async (id: string) => {
+    if (!accessToken) return;
     const taskToDelete = tasks.find((task) => task.id === id);
-    if (taskToDelete?.notificationId) {
-      await cancelNotificationForTask(taskToDelete.notificationId);
+    try {
+      if (taskToDelete?.notificationId) {
+        await cancelNotificationForTask(taskToDelete.notificationId);
+      }
+
+      await deleteTaskFromServer(accessToken, id);
+
+      setTasks(tasks.filter((task) => task.id !== id));
+    } catch (e) {
+      console.error('Failed to delete task:', e);
+      Alert.alert(t('error') || 'Error', 'Failed to delete task from server');
     }
-    setTasks(tasks.filter((task) => task.id !== id));
   };
 
   const handleAdd = async (
@@ -181,36 +208,56 @@ export function TasksScreen({
       | { title: string; time: string; content: string; type: string; date?: string }
       | Array<{ title: string; time: string; content: string; type: string; date?: string }>
   ) => {
+    if (!accessToken) {
+      console.log('📱 [Mobile] Cannot add task: No access token');
+      return;
+    }
+    console.log('📱 [Mobile] handleAdd invoked with data:', JSON.stringify(taskData));
     const dataList = Array.isArray(taskData) ? taskData : [taskData];
     const newTasks: Task[] = [];
 
-    for (let i = 0; i < dataList.length; i++) {
-      const item = dataList[i];
-      let notificationId: string | undefined = undefined;
-      if (item.date && item.time) {
-        notificationId = await scheduleNotificationForTask(item.title, item.date, item.time, t('taskReminder'));
+    try {
+      for (let i = 0; i < dataList.length; i++) {
+        const item = dataList[i];
+        console.log('📱 [Mobile] Creating task on server for item:', JSON.stringify(item));
+
+        const savedTask = await createTaskOnServer(accessToken, {
+          title: item.title,
+          content: item.content,
+          date: item.date,
+          time: item.time,
+          type: item.type,
+          completed: false,
+        });
+        console.log('📱 [Mobile] Created task on server successfully! Result:', JSON.stringify(savedTask));
+
+        let notificationId: string | undefined = undefined;
+        if (item.date && item.time) {
+          notificationId = await scheduleNotificationForTask(item.title, item.date, item.time, t('taskReminder'));
+          if (notificationId) {
+            savedTask.notificationId = notificationId;
+            console.log('📱 [Mobile] Scheduling local notification. ID:', notificationId);
+            await updateTaskOnServer(accessToken, savedTask.id, { notificationId });
+          }
+        }
+
+        newTasks.push(savedTask);
       }
 
-      newTasks.push({
-        id: `${Date.now()}_${i}_${Math.random().toString(36).substring(2, 9)}`,
-        title: item.title,
-        content: item.content,
-        time: item.time,
-        type: item.type,
-        date: item.date,
-        completed: false,
-        theme: 'primary', // Fallback, will be calculated dynamically below
-        notificationId,
+      setTasks((prevTasks) => {
+        const tasksWithThemes = newTasks.map((t, idx) => ({
+          ...t,
+          theme: ((prevTasks.length + idx) % 2 === 0 ? 'primary' : 'secondary') as 'primary' | 'secondary',
+        }));
+        return [...tasksWithThemes, ...prevTasks];
       });
+    } catch (e) {
+      console.error('Failed to create task on server:', e);
+      Alert.alert(
+        t('error') || 'Error',
+        e instanceof Error ? e.message : 'Failed to create task on server'
+      );
     }
-
-    setTasks((prevTasks) => {
-      const tasksWithThemes = newTasks.map((t, idx) => ({
-        ...t,
-        theme: ((prevTasks.length + idx) % 2 === 0 ? 'primary' : 'secondary') as 'primary' | 'secondary',
-      }));
-      return [...tasksWithThemes, ...prevTasks];
-    });
   };
 
   return (
