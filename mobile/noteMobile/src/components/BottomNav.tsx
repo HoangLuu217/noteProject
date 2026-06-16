@@ -41,7 +41,6 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
     { id: 'focus', label: t('tabFocus'), icon: Timer },
     { id: 'notes', label: t('tabNotes'), icon: StickyNote },
     { id: 'expenses', label: t('tabExpenses'), icon: Wallet },
-    { id: 'profile', label: t('tabProfile'), icon: Smile },
   ] as const;
 
   const COL_WIDTH = (NAV_WIDTH - PADDING_HORIZONTAL * 2) / tabs.length;
@@ -77,6 +76,12 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
 
   const indicatorLeft = Animated.subtract(indicatorCenter, Animated.divide(indicatorWidth, 2));
 
+  const indicatorOpacity = scrollX.interpolate({
+    inputRange: [0, 1 * SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH, 4 * SCREEN_WIDTH],
+    outputRange: [1, 1, 1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
   const MIN_CENTER = PADDING_HORIZONTAL + COL_WIDTH / 2;
   const MAX_CENTER = PADDING_HORIZONTAL + COL_WIDTH * (tabs.length - 1) + COL_WIDTH / 2;
   const TRACK_WIDTH = MAX_CENTER - MIN_CENTER;
@@ -103,7 +108,8 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         isDragging.current = false;
-        const index = tabs.map(t => t.id).indexOf(activeTabRef.current);
+        const rawIndex = tabs.map(t => t.id).indexOf(activeTabRef.current as any);
+        const index = rawIndex === -1 ? 3 : rawIndex;
         dragStartScrollX.current = index * screenWidthRef.current;
         Animated.spring(pressAnim, {
           toValue: 1.15,
@@ -195,6 +201,7 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
             bottom: indicatorBottom,
             borderRadius: indicatorRadius,
             shadowColor: isDark ? 'transparent' : 'rgba(0, 0, 0, 0.04)',
+            opacity: indicatorOpacity,
           }
         ]}
       />
