@@ -484,7 +484,7 @@ const useStyles = createThemedStyles((colors) => ({
     borderWidth: 2,
     borderColor: 'rgba(0, 0, 0, 0.05)',
     borderBottomWidth: 5,
-    borderBottomColor: 'rgba(0, 103, 128, 0.2)',
+    borderBottomColor: colors.primary + '33',
   },
   filterPill: {
     paddingVertical: 10,
