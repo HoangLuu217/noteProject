@@ -27,7 +27,8 @@ const getExpenses = async (userId, query = {}) => {
     filter.$or = [
       { title: searchRegex },
       { note: searchRegex },
-      { category: searchRegex }
+      { category: searchRegex },
+      { 'items.itemName': searchRegex }
     ];
   }
 
@@ -95,12 +96,17 @@ const createExpense = async (userId, payload) => {
     const unitPrice = Number(item.unitPrice) || 0;
     const amount = item.amount !== undefined ? Number(item.amount) : (quantity * unitPrice);
     computedTotal += amount;
-    return {
+    
+    const mapped = {
       itemName: item.itemName,
       quantity,
       unitPrice,
       amount,
     };
+    if (item.createdAt) {
+      mapped.createdAt = item.createdAt;
+    }
+    return mapped;
   });
 
   const finalTotalAmount = totalAmount !== undefined ? Number(totalAmount) : computedTotal;
@@ -160,12 +166,17 @@ const updateExpense = async (userId, id, payload) => {
       const unitPrice = Number(item.unitPrice) || 0;
       const amount = item.amount !== undefined ? Number(item.amount) : (quantity * unitPrice);
       computedTotal += amount;
-      return {
+      
+      const mapped = {
         itemName: item.itemName,
         quantity,
         unitPrice,
         amount,
       };
+      if (item.createdAt) {
+        mapped.createdAt = item.createdAt;
+      }
+      return mapped;
     });
     expense.items = processedItems;
     if (totalAmount === undefined) {

@@ -2,6 +2,10 @@
   "expo": {
     "name": "To Do",
     "slug": "noteMobile",
+    "scheme": [
+      "notemobile",
+      "com.googleusercontent.apps.862670529475-504ghlhm914k0p93rio7p0la7rffmirj"
+    ],
     "version": "1.0.12",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -32,11 +36,18 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
+        "NOTIFICATIONS",
         "NOTIFICATIONS"
-      ]
+      ],
+      "package": "com.anonymous.noteMobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "684e53be-8011-4f40-af1d-7a29d96d8dff"
+      }
     }
   }
 }
