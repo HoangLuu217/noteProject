@@ -8,10 +8,6 @@ const buildFilter = (userId, query = {}) => {
     filter.folderId = query.folderId;
   }
 
-  if (query.tagId) {
-    filter.tags = query.tagId;
-  }
-
   if (query.favorite === 'true') {
     filter.isFavorite = true;
   }
@@ -30,8 +26,7 @@ const getNotes = async (userId, query = {}) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('folderId')
-      .populate('tags'),
+      .populate('folderId'),
     Note.countDocuments(filter),
   ]);
 
@@ -53,7 +48,7 @@ const getNoteById = async (userId, id) => {
     throw error;
   }
 
-  const note = await Note.findOne({ _id: id, userId }).populate('folderId').populate('tags');
+  const note = await Note.findOne({ _id: id, userId }).populate('folderId');
   if (!note) {
     const error = new Error('Note not found');
     error.statusCode = 404;
@@ -64,7 +59,7 @@ const getNoteById = async (userId, id) => {
 };
 
 const createNote = async (userId, payload) => {
-  const { title, content = '', folderId = null, tags = [] } = payload;
+  const { title, content = '', folderId = null } = payload;
 
   if (!title || !title.trim()) {
     const error = new Error('Title is required');
@@ -77,15 +72,14 @@ const createNote = async (userId, payload) => {
     title: title.trim(),
     content,
     folderId,
-    tags,
   });
 
-  return note.populate('folderId').populate('tags');
+  return note.populate('folderId');
 };
 
 const updateNote = async (userId, id, payload) => {
   const note = await getNoteById(userId, id);
-  const { title, content, folderId, tags, isFavorite } = payload;
+  const { title, content, folderId, isFavorite } = payload;
 
   if (typeof title === 'string' && title.trim()) {
     note.title = title.trim();
@@ -96,16 +90,12 @@ const updateNote = async (userId, id, payload) => {
   if (folderId !== undefined) {
     note.folderId = folderId;
   }
-  if (Array.isArray(tags)) {
-    note.tags = tags;
-  }
   if (typeof isFavorite === 'boolean') {
     note.isFavorite = isFavorite;
   }
 
   await note.save();
   await note.populate('folderId');
-  await note.populate('tags');
   return note;
 };
 
@@ -140,8 +130,7 @@ const searchNotes = async (userId, query = {}) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('folderId')
-      .populate('tags'),
+      .populate('folderId'),
     Note.countDocuments(filter),
   ]);
 
@@ -161,7 +150,6 @@ const toggleFavorite = async (userId, id) => {
   note.isFavorite = !note.isFavorite;
   await note.save();
   await note.populate('folderId');
-  await note.populate('tags');
   return note;
 };
 

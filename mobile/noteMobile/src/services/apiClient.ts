@@ -2,7 +2,7 @@ import { env } from '../config/env';
 import { ApiError, ApiResponse } from '../types/api';
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   body?: unknown;
   token?: string | null;
 };

@@ -738,7 +738,7 @@ const useStyles = createThemedStyles((colors) => ({
     shadowRadius: 8,
     elevation: 4,
     borderBottomWidth: 4,
-    borderBottomColor: 'rgba(0, 103, 128, 0.2)',
+    borderBottomColor: colors.primary + '33',
   },
   submitBtnText: {
     fontFamily: 'Quicksand-Bold',
