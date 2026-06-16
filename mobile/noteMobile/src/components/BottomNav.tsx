@@ -7,7 +7,7 @@ import {
   PanResponder,
   useWindowDimensions,
 } from 'react-native';
-import { ClipboardList, Smile, Timer, StickyNote } from 'lucide-react-native';
+import { ClipboardList, Smile, Timer, StickyNote, Wallet } from 'lucide-react-native';
 import { theme, createThemedStyles } from '../theme';
 import { useTheme } from './ThemeProvider';
 import { useLanguage } from './LanguageProvider';
@@ -21,8 +21,8 @@ function hexToRgba(hex: string, alpha: number) {
 }
 
 interface BottomNavProps {
-  activeTab: 'tasks' | 'focus' | 'notes' | 'profile';
-  onChangeTab: (tab: 'tasks' | 'focus' | 'notes' | 'profile') => void;
+  activeTab: 'tasks' | 'focus' | 'notes' | 'expenses' | 'profile';
+  onChangeTab: (tab: 'tasks' | 'focus' | 'notes' | 'expenses' | 'profile') => void;
   scrollX: Animated.Value;
   onDragScroll?: (offsetX: number) => void;
 }
@@ -35,48 +35,55 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const NAV_WIDTH = SCREEN_WIDTH - 32;
   const PADDING_HORIZONTAL = 8;
-  const COL_WIDTH = (NAV_WIDTH - PADDING_HORIZONTAL * 2) / 4;
+
+  const tabs = [
+    { id: 'tasks', label: t('tabTasks'), icon: ClipboardList },
+    { id: 'focus', label: t('tabFocus'), icon: Timer },
+    { id: 'notes', label: t('tabNotes'), icon: StickyNote },
+    { id: 'expenses', label: t('tabExpenses'), icon: Wallet },
+  ] as const;
+
+  const COL_WIDTH = (NAV_WIDTH - PADDING_HORIZONTAL * 2) / tabs.length;
   const INDICATOR_WIDTH = COL_WIDTH - 4;
 
   // Center position of the indicator for each tab
+  const inputRange = tabs.map((_, i) => i * SCREEN_WIDTH);
+  const outputRange = tabs.map((_, i) => PADDING_HORIZONTAL + i * COL_WIDTH + COL_WIDTH / 2);
+
   const indicatorCenter = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, SCREEN_WIDTH * 2, SCREEN_WIDTH * 3],
-    outputRange: [
-      PADDING_HORIZONTAL + COL_WIDTH / 2,
-      PADDING_HORIZONTAL + COL_WIDTH + COL_WIDTH / 2,
-      PADDING_HORIZONTAL + COL_WIDTH * 2 + COL_WIDTH / 2,
-      PADDING_HORIZONTAL + COL_WIDTH * 3 + COL_WIDTH / 2,
-    ],
+    inputRange,
+    outputRange,
     extrapolate: 'clamp',
   });
 
   // Dynamic width of the indicator (stretches in between tabs like liquid)
+  const widthInputRange: number[] = [];
+  const widthOutputRange: number[] = [];
+  tabs.forEach((_, i) => {
+    widthInputRange.push(i * SCREEN_WIDTH);
+    widthOutputRange.push(INDICATOR_WIDTH);
+    if (i < tabs.length - 1) {
+      widthInputRange.push((i + 0.5) * SCREEN_WIDTH);
+      widthOutputRange.push(INDICATOR_WIDTH * 1.45);
+    }
+  });
+
   const indicatorWidth = scrollX.interpolate({
-    inputRange: [
-      0,
-      SCREEN_WIDTH * 0.5,
-      SCREEN_WIDTH,
-      SCREEN_WIDTH * 1.5,
-      SCREEN_WIDTH * 2,
-      SCREEN_WIDTH * 2.5,
-      SCREEN_WIDTH * 3
-    ],
-    outputRange: [
-      INDICATOR_WIDTH,
-      INDICATOR_WIDTH * 1.45,
-      INDICATOR_WIDTH,
-      INDICATOR_WIDTH * 1.45,
-      INDICATOR_WIDTH,
-      INDICATOR_WIDTH * 1.45,
-      INDICATOR_WIDTH
-    ],
+    inputRange: widthInputRange,
+    outputRange: widthOutputRange,
     extrapolate: 'clamp',
   });
 
   const indicatorLeft = Animated.subtract(indicatorCenter, Animated.divide(indicatorWidth, 2));
 
+  const indicatorOpacity = scrollX.interpolate({
+    inputRange: [0, 1 * SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH, 4 * SCREEN_WIDTH],
+    outputRange: [1, 1, 1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
   const MIN_CENTER = PADDING_HORIZONTAL + COL_WIDTH / 2;
-  const MAX_CENTER = PADDING_HORIZONTAL + COL_WIDTH * 3 + COL_WIDTH / 2;
+  const MAX_CENTER = PADDING_HORIZONTAL + COL_WIDTH * (tabs.length - 1) + COL_WIDTH / 2;
   const TRACK_WIDTH = MAX_CENTER - MIN_CENTER;
 
   const activeTabRef = useRef(activeTab);
@@ -101,7 +108,8 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         isDragging.current = false;
-        const index = ['tasks', 'focus', 'notes', 'profile'].indexOf(activeTabRef.current);
+        const rawIndex = tabs.map(t => t.id).indexOf(activeTabRef.current as any);
+        const index = rawIndex === -1 ? 3 : rawIndex;
         dragStartScrollX.current = index * screenWidthRef.current;
         Animated.spring(pressAnim, {
           toValue: 1.15,
@@ -116,9 +124,9 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
           isDragging.current = true;
         }
         if (isDragging.current) {
-          const ratio = (screenWidthRef.current * 3) / trackWidthRef.current;
+          const ratio = (screenWidthRef.current * (tabs.length - 1)) / trackWidthRef.current;
           const targetScroll = dragStartScrollX.current + dx * ratio;
-          const clampedScroll = Math.max(0, Math.min(targetScroll, screenWidthRef.current * 3));
+          const clampedScroll = Math.max(0, Math.min(targetScroll, screenWidthRef.current * (tabs.length - 1)));
           scrollX.setValue(clampedScroll);
         }
       },
@@ -131,19 +139,17 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
         }).start();
 
         if (isDragging.current) {
-          const ratio = (screenWidthRef.current * 3) / trackWidthRef.current;
+          const ratio = (screenWidthRef.current * (tabs.length - 1)) / trackWidthRef.current;
           const targetScroll = dragStartScrollX.current + gestureState.dx * ratio;
-          const clampedScroll = Math.max(0, Math.min(targetScroll, screenWidthRef.current * 3));
+          const clampedScroll = Math.max(0, Math.min(targetScroll, screenWidthRef.current * (tabs.length - 1)));
           const index = Math.round(clampedScroll / screenWidthRef.current);
-          const tabsList: ('tasks' | 'focus' | 'notes' | 'profile')[] = ['tasks', 'focus', 'notes', 'profile'];
-          const snappedTab = tabsList[Math.max(0, Math.min(index, 3))];
+          const snappedTab = tabs[Math.max(0, Math.min(index, tabs.length - 1))].id;
           onChangeTab(snappedTab);
         } else {
           // Tap gesture - find exact clicked tab column
           const relativeX = evt.nativeEvent.pageX - 16;
-          const clickedIndex = Math.max(0, Math.min(Math.floor((relativeX - PADDING_HORIZONTAL) / colWidthRef.current), 3));
-          const tabsList: ('tasks' | 'focus' | 'notes' | 'profile')[] = ['tasks', 'focus', 'notes', 'profile'];
-          onChangeTab(tabsList[clickedIndex]);
+          const clickedIndex = Math.max(0, Math.min(Math.floor((relativeX - PADDING_HORIZONTAL) / colWidthRef.current), tabs.length - 1));
+          onChangeTab(tabs[clickedIndex].id);
         }
       },
       onPanResponderTerminate: () => {
@@ -154,13 +160,6 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
       },
     })
   ).current;
-
-  const tabs = [
-    { id: 'tasks', label: t('tabTasks'), icon: ClipboardList },
-    { id: 'focus', label: t('tabFocus'), icon: Timer },
-    { id: 'notes', label: t('tabNotes'), icon: StickyNote },
-    { id: 'profile', label: t('tabProfile'), icon: Smile },
-  ] as const;
 
   const navBg = isDark ? 'rgba(30, 31, 28, 0.75)' : 'rgba(255, 255, 255, 0.75)';
   const navBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)';
@@ -202,6 +201,7 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
             bottom: indicatorBottom,
             borderRadius: indicatorRadius,
             shadowColor: isDark ? 'transparent' : 'rgba(0, 0, 0, 0.04)',
+            opacity: indicatorOpacity,
           }
         ]}
       />
