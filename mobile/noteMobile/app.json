@@ -4,7 +4,8 @@
     "slug": "noteMobile",
     "scheme": [
       "notemobile",
-      "com.googleusercontent.apps.862670529475-504ghlhm914k0p93rio7p0la7rffmirj"
+      "com.googleusercontent.apps.862670529475-504ghlhm914k0p93rio7p0la7rffmirj",
+      "com.googleusercontent.apps.862670529475-suslmbmm50f9ciofrsn153rhke7679jj"
     ],
     "version": "1.0.12",
     "orientation": "portrait",
@@ -46,7 +47,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "684e53be-8011-4f40-af1d-7a29d96d8dff"
+        "projectId": "a577fcbb-719b-4602-a3d7-81b983c55d1b"
       }
     }
   }

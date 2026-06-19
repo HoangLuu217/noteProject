@@ -8,21 +8,28 @@ class CustomError extends Error {
   }
 }
 
-const callAI = async (prompt) => {
+const callAI = async (prompt, maxRetries = 2) => {
   if (!process.env.GEMINI_API_KEY) {
     throw new CustomError('Chưa có GEMINI_API_KEY trong file .env. Vui lòng thêm vào để sử dụng AI!', 500);
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Sử dụng model gemini-2.5-flash mới nhất
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    
-    const result = await model.generateContent(prompt);
-    return result.response.text();
-  } catch (error) {
-    console.error('Lỗi khi gọi Gemini AI:', error);
-    throw new CustomError('Lỗi kết nối với AI', 500);
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    } catch (error) {
+      console.error(`Lỗi khi gọi Gemini AI (lần thử ${attempt + 1}/${maxRetries + 1}):`, error.message);
+      
+      if (attempt === maxRetries) {
+        throw new CustomError('Lỗi kết nối với AI. Hệ thống đang quá tải, vui lòng thử lại sau!', 500);
+      }
+      
+      // Đợi 1.5s trước khi thử lại
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
   }
 };
 
@@ -100,8 +107,26 @@ const getAiHistory = async (userId) => {
   return history;
 };
 
+const getFlashcardsByNoteId = async (userId, noteId) => {
+  const history = await AiHistory.findOne({
+    userId,
+    noteId,
+    actionType: 'GENERATE_FLASHCARDS'
+  }).sort({ createdAt: -1 });
+
+  if (!history || !history.aiResponse) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(history.aiResponse);
+  } catch (error) {
+    return null;
+  }
+};
+
 module.exports = {
   generateFlashcards,
-  generateFlashcards,
-  getAiHistory
+  getAiHistory,
+  getFlashcardsByNoteId
 };

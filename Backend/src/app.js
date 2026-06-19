@@ -35,8 +35,10 @@ app.use('/api/notes', noteRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/ai-flashcards', require('./routes/aiFlashcardRoutes'));
 
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 module.exports = app;
+// Trigger nodemon restart
