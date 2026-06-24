@@ -82,7 +82,7 @@ const deleteFolder = async (userId, folderId) => {
 
 const getFolderNotes = async (userId, folderId) => {
   const folder = await getFolderById(userId, folderId);
-  const notes = await Note.find({ userId, folderId: folder._id }).sort({ createdAt: -1 }).populate('folderId').populate('tags');
+  const notes = await Note.find({ userId, folderId: folder._id }).sort({ createdAt: -1 }).populate('folderId');
   return { folder, notes };
 };
 

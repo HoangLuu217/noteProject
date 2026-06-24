@@ -6,7 +6,6 @@ const authRoutes = require('./routes/authRoutes');
 const folderRoutes = require('./routes/folderRoutes');
 const noteRoutes = require('./routes/noteRoutes');
 const taskRoutes = require('./routes/taskRoutes');
-const tagRoutes = require('./routes/tagRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
@@ -34,7 +33,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/tasks', taskRoutes);
-app.use('/api/tags', tagRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/expenses', expenseRoutes);
 
