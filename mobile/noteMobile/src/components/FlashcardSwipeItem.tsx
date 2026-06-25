@@ -8,6 +8,7 @@ import {
   Dimensions,
   Pressable,
 } from 'react-native';
+import { Pointer } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 120;
@@ -33,7 +34,11 @@ export function FlashcardSwipeItem({
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Chỉ bắt đầu vuốt khi người dùng kéo tay quá 5px (tránh lỗi vuốt nhầm khi đang bấm chạm)
+        return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
+      },
       onPanResponderMove: (_, gestureState) => {
         position.setValue({ x: gestureState.dx, y: gestureState.dy });
       },
@@ -149,9 +154,23 @@ export function FlashcardSwipeItem({
               },
             ]}
           >
-            <Text style={[styles.title, { color: colors.onSurface }]}>Câu hỏi</Text>
-            <Text style={[styles.text, { color: colors.onSurfaceVariant }]}>{question}</Text>
-            <Text style={[styles.hint, { color: colors.primary }]}>Chạm để xem đáp án</Text>
+            <View style={styles.tagContainer}>
+              <Text style={styles.tagText}>CÂU HỎI</Text>
+            </View>
+            <View style={styles.centerContent}>
+              <Text
+                style={[styles.textMain, { color: colors.onSurface }]}
+                adjustsFontSizeToFit={true}
+                numberOfLines={10}
+                minimumFontScale={0.5}
+              >
+                {question}
+              </Text>
+            </View>
+            <View style={styles.hintContainer}>
+              <Pointer size={28} color="#0B525B" style={{ marginBottom: 8 }} />
+              <Text style={[styles.hint, { color: '#0B525B' }]}>Chạm để xem đáp án</Text>
+            </View>
 
             <Animated.View style={[styles.stampContainer, styles.stampRight, { opacity: likeOpacity }]}>
               <Text style={[styles.stampText, { color: '#4cc9f0', borderColor: '#4cc9f0' }]}>NHỚ</Text>
@@ -173,8 +192,19 @@ export function FlashcardSwipeItem({
               },
             ]}
           >
-            <Text style={[styles.title, { color: colors.onPrimaryContainer }]}>Đáp án</Text>
-            <Text style={[styles.text, { color: colors.onPrimaryContainer }]}>{answer}</Text>
+            <View style={[styles.tagContainer, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+              <Text style={[styles.tagText, { color: colors.onPrimaryContainer }]}>ĐÁP ÁN</Text>
+            </View>
+            <View style={styles.centerContent}>
+              <Text
+                style={[styles.textMain, { color: colors.onPrimaryContainer }]}
+                adjustsFontSizeToFit={true}
+                numberOfLines={10}
+                minimumFontScale={0.5}
+              >
+                {answer}
+              </Text>
+            </View>
 
             <Animated.View style={[styles.stampContainer, styles.stampRight, { opacity: likeOpacity }]}>
               <Text style={[styles.stampText, { color: '#4cc9f0', borderColor: '#4cc9f0' }]}>NHỚ</Text>
@@ -193,9 +223,9 @@ const styles = StyleSheet.create({
   cardContainer: {
     position: 'absolute',
     width: SCREEN_WIDTH - 40,
-    height: 400,
+    height: '90%',
     alignSelf: 'center',
-    top: 50,
+    top: 10,
   },
   pressable: {
     flex: 1,
@@ -204,45 +234,59 @@ const styles = StyleSheet.create({
     flex: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 15,
     elevation: 8,
   },
   cardFace: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
+    borderRadius: 32,
     padding: 24,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     backfaceVisibility: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: '#E5E7EB',
   },
   cardBack: {
     transform: [{ rotateX: '180deg' }],
   },
-  title: {
-    fontFamily: 'Quicksand-Bold',
-    fontSize: 18,
-    marginBottom: 20,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  tagContainer: {
+    backgroundColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
   },
-  text: {
-    fontFamily: 'Quicksand-Medium',
-    fontSize: 24,
+  tagText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 12,
+    color: '#4B5563',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  textMain: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 32,
     textAlign: 'center',
-    lineHeight: 34,
+    lineHeight: 40,
+  },
+  hintContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
   },
   hint: {
-    position: 'absolute',
-    bottom: 24,
-    fontFamily: 'Quicksand-SemiBold',
+    fontFamily: 'Quicksand-Medium',
     fontSize: 14,
   },
   stampContainer: {
     position: 'absolute',
-    top: 40,
+    top: 80,
     transform: [{ rotate: '-15deg' }],
   },
   stampRight: {
@@ -259,6 +303,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
 });

@@ -1,8 +1,12 @@
 import { apiRequest } from './apiClient';
 
 export interface Flashcard {
+  type: 'MULTIPLE_CHOICE' | 'BASIC';
   question: string;
+  options: string[];
   answer: string;
+  explanation: string;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
 }
 
 export const generateFlashcards = async (

@@ -19,15 +19,17 @@ import { FlashcardStudyScreen } from './FlashcardStudyScreen';
 interface FlashcardListScreenProps {
   noteId: string;
   noteContent: string;
+  noteTitle?: string;
   onClose: () => void;
 }
 
-export function FlashcardListScreen({ noteId, noteContent, onClose }: FlashcardListScreenProps) {
+export function FlashcardListScreen({ noteId, noteContent, noteTitle, onClose }: FlashcardListScreenProps) {
   const { colors } = useTheme();
   const accessToken = useAuthStore((state) => state.accessToken);
 
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingState, setLoadingState] = useState<'checking' | 'generating'>('checking');
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const [isStudyMode, setIsStudyMode] = useState(false);
@@ -35,6 +37,7 @@ export function FlashcardListScreen({ noteId, noteContent, onClose }: FlashcardL
   const fetchFlashcards = async (forceRegenerate = false) => {
     if (!accessToken) return;
     setIsLoading(true);
+    setLoadingState(forceRegenerate ? 'generating' : 'checking');
     try {
       // Strip html tags from note content for API if needed, but the backend can probably handle it
       const cleanContent = noteContent.replace(/<[^>]*>?/gm, '');
@@ -48,6 +51,7 @@ export function FlashcardListScreen({ noteId, noteContent, onClose }: FlashcardL
         }
       }
 
+      setLoadingState('generating');
       const generated = await generateFlashcards(accessToken, cleanContent, noteId);
       setFlashcards(generated);
     } catch (error) {
@@ -76,7 +80,9 @@ export function FlashcardListScreen({ noteId, noteContent, onClose }: FlashcardL
         <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: colors.surfaceContainer }]}>
           <X size={24} color={colors.onSurface} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.onSurface }]}>Ôn tập Flashcard</Text>
+        <Text style={[styles.headerTitle, { color: colors.onSurface }]} numberOfLines={1}>
+          {noteTitle ? noteTitle : 'Ôn tập Flashcard'}
+        </Text>
         <TouchableOpacity
           onPress={() => fetchFlashcards(true)}
           style={[styles.closeButton, { backgroundColor: colors.surfaceContainer }]}
@@ -90,7 +96,9 @@ export function FlashcardListScreen({ noteId, noteContent, onClose }: FlashcardL
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.onSurfaceVariant }]}>
-            AI đang phân tích ghi chú và tạo bộ thẻ...
+            {loadingState === 'checking' 
+              ? 'Đang kiểm tra và tải thẻ ghi nhớ...' 
+              : 'AI đang phân tích ghi chú và tạo bộ thẻ...'}
           </Text>
         </View>
       ) : flashcards.length === 0 ? (
@@ -125,7 +133,32 @@ export function FlashcardListScreen({ noteId, noteContent, onClose }: FlashcardL
                     activeOpacity={0.7}
                   >
                     <View style={styles.cardQuestionContainer}>
-                      <Text style={[styles.cardNumber, { color: colors.primary }]}>Q{index + 1}</Text>
+                      <View style={styles.questionNumberWrapper}>
+                        <Text style={[styles.cardNumber, { color: colors.primary }]}>Q{index + 1}</Text>
+                        {card.difficulty && (
+                          <View style={[
+                            styles.difficultyBadge, 
+                            { 
+                              backgroundColor: 
+                                card.difficulty === 'HARD' ? colors.errorContainer : 
+                                card.difficulty === 'EASY' ? colors.primaryContainer : 
+                                colors.tertiaryContainer 
+                            }
+                          ]}>
+                            <Text style={[
+                              styles.difficultyText,
+                              {
+                                color: 
+                                  card.difficulty === 'HARD' ? colors.onErrorContainer : 
+                                  card.difficulty === 'EASY' ? colors.onPrimaryContainer : 
+                                  colors.onTertiaryContainer 
+                              }
+                            ]}>
+                              {card.difficulty === 'HARD' ? 'Khó' : card.difficulty === 'EASY' ? 'Dễ' : 'TB'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={[styles.cardQuestion, { color: colors.onSurface }]}>
                         {card.question}
                       </Text>
@@ -156,7 +189,7 @@ export function FlashcardListScreen({ noteId, noteContent, onClose }: FlashcardL
             <TouchableOpacity
               style={[
                 styles.studyButton,
-                { backgroundColor: colors.primary }
+                { backgroundColor: colors.primaryContainer }
               ]}
               onPress={() => setIsStudyMode(true)}
               activeOpacity={0.8}
@@ -174,13 +207,18 @@ export function FlashcardListScreen({ noteId, noteContent, onClose }: FlashcardL
       <Modal
         visible={isStudyMode}
         animationType="slide"
-        presentationStyle="fullScreen"
+        presentationStyle="overFullScreen"
+        transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={() => setIsStudyMode(false)}
       >
-        <FlashcardStudyScreen
-          flashcards={flashcards}
-          onClose={() => setIsStudyMode(false)}
-        />
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <FlashcardStudyScreen
+            flashcards={flashcards}
+            noteTitle={noteTitle}
+            onClose={() => setIsStudyMode(false)}
+          />
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -249,10 +287,23 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 16,
   },
+  questionNumberWrapper: {
+    alignItems: 'center',
+    marginRight: 12,
+  },
   cardNumber: {
     fontFamily: 'Quicksand-Bold',
     fontSize: 16,
-    marginRight: 12,
+    marginBottom: 4,
+  },
+  difficultyBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  difficultyText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 10,
   },
   cardQuestion: {
     fontFamily: 'Quicksand-SemiBold',

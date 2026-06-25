@@ -22,11 +22,11 @@ const callAI = async (prompt, maxRetries = 2) => {
       return result.response.text();
     } catch (error) {
       console.error(`Lỗi khi gọi Gemini AI (lần thử ${attempt + 1}/${maxRetries + 1}):`, error.message);
-      
+
       if (attempt === maxRetries) {
         throw new CustomError('Lỗi kết nối với AI. Hệ thống đang quá tải, vui lòng thử lại sau!', 500);
       }
-      
+
       // Đợi 1.5s trước khi thử lại
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
@@ -47,19 +47,20 @@ const generateFlashcards = async (userId, data) => {
   - "options": Mảng các đáp án (tuỳ ý theo lệnh của người dùng)
   - "answer": Đáp án đúng
   - "explanation": Giải thích tại sao đáp án đó đúng (tuỳ chọn)
+  - "difficulty": Độ khó của câu hỏi ("EASY", "MEDIUM", hoặc "HARD")
   
   KHÔNG bọc JSON trong \`\`\`json. CHỈ in ra mảng JSON.
   Nội dung/Lệnh của người dùng: ${content}`;
-  
+
   let aiResponseStr = await callAI(prompt);
-  
+
   // Dọn dẹp chuỗi trả về để chống lỗi JSON parse nếu AI vô tình kèm theo markdown
   aiResponseStr = aiResponseStr.replace(/```json/gi, '').replace(/```/g, '').trim();
 
   let flashcardsArray;
   try {
     const rawArray = JSON.parse(aiResponseStr);
-    
+
     // BƯỚC BẢO VỆ (Tầng AI Validation): Lọc dữ liệu để xoá bỏ mọi trường rác và đảm bảo logic
     flashcardsArray = rawArray.map(item => {
       const type = item.type === 'MULTIPLE_CHOICE' ? 'MULTIPLE_CHOICE' : 'BASIC';
@@ -71,11 +72,11 @@ const generateFlashcards = async (userId, data) => {
       if (type === 'MULTIPLE_CHOICE') {
         // 1. Loại bỏ các đáp án trùng lặp
         options = [...new Set(options)];
-        
+
         // 2. Ép số lượng đáp án từ 2 đến 6
         if (options.length < 2) options.push('Đáp án sai 1', 'Đáp án sai 2');
         if (options.length > 6) options = options.slice(0, 6);
-        
+
         // 3. Ép đáp án đúng (answer) BẮT BUỘC phải nằm trong danh sách options
         if (!options.includes(answer)) {
           answer = options[0]; // Chữa cháy bằng cách lấy đáp án đầu tiên làm đáp án đúng
@@ -85,7 +86,13 @@ const generateFlashcards = async (userId, data) => {
         options = [];
       }
 
-      return { type, question, options, answer, explanation };
+      // Xử lý độ khó (mặc định là MEDIUM nếu AI trả về sai)
+      let difficulty = item.difficulty;
+      if (!['EASY', 'MEDIUM', 'HARD'].includes(difficulty)) {
+        difficulty = 'MEDIUM';
+      }
+
+      return { type, question, options, answer, explanation, difficulty };
     });
   } catch (error) {
     throw new CustomError('AI trả về sai định dạng JSON. Vui lòng thử lại!', 500);

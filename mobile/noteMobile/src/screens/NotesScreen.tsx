@@ -331,6 +331,7 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
   // Flashcard states
   const [flashcardNoteId, setFlashcardNoteId] = useState<string | null>(null);
   const [flashcardNoteContent, setFlashcardNoteContent] = useState<string>('');
+  const [flashcardNoteTitle, setFlashcardNoteTitle] = useState<string>('');
 
   const formatDateString = (dateString?: string) => {
     if (!dateString) return new Date().toLocaleDateString();
@@ -525,9 +526,10 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
     }
   };
 
-  const openFlashcards = (noteId: string, content: string) => {
+  const openFlashcards = (noteId: string, content: string, title: string) => {
     setFlashcardNoteId(noteId);
     setFlashcardNoteContent(content);
+    setFlashcardNoteTitle(title);
   };
 
   const confirmDeleteNote = (id: string) => {
@@ -1063,9 +1065,9 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                     </Text>
                   </View>
                   {folder && (
-                    <View style={[styles.noteFolderBadge, { backgroundColor: folder.color + '20' }]}>
+                    <View style={[styles.noteFolderBadge, { backgroundColor: folder.color + '20', flexShrink: 1, maxWidth: '40%', marginLeft: 8 }]}>
                       <FolderIcon size={12} color={folder.color} />
-                      <Text style={[styles.noteFolderBadgeText, { color: folder.color }]}>
+                      <Text style={[styles.noteFolderBadgeText, { color: folder.color }]} numberOfLines={1} ellipsizeMode="tail">
                         {folder.name}
                       </Text>
                     </View>
@@ -1074,7 +1076,7 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                   {note.content ? (
                     <TouchableOpacity 
                       style={[styles.noteFolderBadge, { backgroundColor: colors.primaryContainer }]}
-                      onPress={() => openFlashcards(note.id, note.content)}
+                      onPress={() => openFlashcards(note.id, note.content, note.title)}
                     >
                       <Zap size={12} color={colors.primary} />
                       <Text style={[styles.noteFolderBadgeText, { color: colors.primary }]}>
@@ -1432,13 +1434,16 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
       <Modal
         visible={!!flashcardNoteId}
         animationType="slide"
-        presentationStyle="fullScreen"
+        presentationStyle="overFullScreen"
+        transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={() => setFlashcardNoteId(null)}
       >
         {flashcardNoteId && (
           <FlashcardListScreen 
             noteId={flashcardNoteId}
             noteContent={flashcardNoteContent}
+            noteTitle={flashcardNoteTitle}
             onClose={() => setFlashcardNoteId(null)}
           />
         )}
