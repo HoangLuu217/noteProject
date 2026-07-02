@@ -5,9 +5,11 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
-import { theme, createThemedStyles } from '../theme';
 import { useTheme } from './ThemeProvider';
 import { useLanguage } from './LanguageProvider';
+import { useAuthStore } from '../stores/authStore';
+import { Flame } from 'lucide-react-native';
+import { theme, createThemedStyles } from '../theme';
 
 interface TopBarProps {
   avatarUrl: any;
@@ -18,6 +20,7 @@ interface TopBarProps {
 export function TopBar({ avatarUrl, profileName, onAvatarPress }: TopBarProps) {
   const { colors } = useTheme();
   const { t } = useLanguage();
+  const streak = useAuthStore((state) => state.streak);
   const styles = useStyles(colors);
 
   return (
@@ -35,14 +38,22 @@ export function TopBar({ avatarUrl, profileName, onAvatarPress }: TopBarProps) {
           <Text style={styles.welcomeText}>{t('welcomeUser', { name: profileName })}</Text>
         </View>
       </View>
-      <TouchableOpacity activeOpacity={0.8} onPress={onAvatarPress}>
-        <View style={styles.avatarRing}>
-          <Image
-            source={typeof avatarUrl === 'string' ? { uri: avatarUrl } : avatarUrl}
-            style={styles.avatar}
-          />
-        </View>
-      </TouchableOpacity>
+      <View style={styles.right}>
+        {streak > 0 && (
+          <View style={styles.streakBadge}>
+            <Flame size={16} color="#FF6B6B" fill="#FF6B6B" />
+            <Text style={styles.streakText}>{streak}</Text>
+          </View>
+        )}
+        <TouchableOpacity activeOpacity={0.8} onPress={onAvatarPress}>
+          <View style={styles.avatarRing}>
+            <Image
+              source={typeof avatarUrl === 'string' ? { uri: avatarUrl } : avatarUrl}
+              style={styles.avatar}
+            />
+          </View>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -89,6 +100,25 @@ const useStyles = createThemedStyles((colors) => ({
     color: colors.outline,
     lineHeight: 14,
     marginTop: 2,
+  },
+  right: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  streakText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 14,
+    color: '#FF6B6B',
   },
   avatarRing: {
     width: 48,

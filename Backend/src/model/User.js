@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
     },
     authProvider: {
       type: String,
-      enum: ['google', 'password'],
+      enum: ['google', 'password', 'firebase'],
       default: 'password',
     },
     accessToken: {
@@ -47,6 +47,18 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
     lastLoginAt: {
+      type: Date,
+      default: null,
+    },
+    currentStreak: {
+      type: Number,
+      default: 0,
+    },
+    highestStreak: {
+      type: Number,
+      default: 0,
+    },
+    lastActiveDate: {
       type: Date,
       default: null,
     },

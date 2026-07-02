@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Linking, Alert, Platform, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Trash2, X, FileText, ChevronLeft, Bold, Italic, Underline, Link2, Palette, Check, Folder as FolderIcon, ChevronDown, Edit, Search, Calendar } from 'lucide-react-native';
+import { Plus, Trash2, X, FileText, ChevronLeft, Bold, Italic, Underline, Link2, Palette, Check, Folder as FolderIcon, ChevronDown, Edit, Search, Calendar, Zap } from 'lucide-react-native';
 import { theme, createThemedStyles } from '../theme';
 import { useTheme } from '../components/ThemeProvider';
 import { useLanguage } from '../components/LanguageProvider';
@@ -19,6 +19,7 @@ import {
   updateNoteOnServer,
   deleteNoteFromServer,
 } from '../services/noteService';
+import { FlashcardListScreen } from './FlashcardListScreen';
 
 const FORMAT_COLORS = [
   { name: 'Red', color: '#E53935' },
@@ -327,6 +328,11 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Flashcard states
+  const [flashcardNoteId, setFlashcardNoteId] = useState<string | null>(null);
+  const [flashcardNoteContent, setFlashcardNoteContent] = useState<string>('');
+  const [flashcardNoteTitle, setFlashcardNoteTitle] = useState<string>('');
+
   const formatDateString = (dateString?: string) => {
     if (!dateString) return new Date().toLocaleDateString();
     const d = new Date(dateString);
@@ -518,6 +524,12 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
       console.error('Failed to delete note:', error);
       Alert.alert(t('error') || 'Error', 'Failed to delete note from server');
     }
+  };
+
+  const openFlashcards = (noteId: string, content: string, title: string) => {
+    setFlashcardNoteId(noteId);
+    setFlashcardNoteContent(content);
+    setFlashcardNoteTitle(title);
   };
 
   const confirmDeleteNote = (id: string) => {
@@ -1053,13 +1065,25 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                     </Text>
                   </View>
                   {folder && (
-                    <View style={[styles.noteFolderBadge, { backgroundColor: folder.color + '20' }]}>
+                    <View style={[styles.noteFolderBadge, { backgroundColor: folder.color + '20', flexShrink: 1, maxWidth: '40%', marginLeft: 8 }]}>
                       <FolderIcon size={12} color={folder.color} />
-                      <Text style={[styles.noteFolderBadgeText, { color: folder.color }]}>
+                      <Text style={[styles.noteFolderBadgeText, { color: folder.color }]} numberOfLines={1} ellipsizeMode="tail">
                         {folder.name}
                       </Text>
                     </View>
                   )}
+                  <View style={{ flex: 1 }} />
+                  {note.content ? (
+                    <TouchableOpacity 
+                      style={[styles.noteFolderBadge, { backgroundColor: colors.primaryContainer }]}
+                      onPress={() => openFlashcards(note.id, note.content, note.title)}
+                    >
+                      <Zap size={12} color={colors.primary} />
+                      <Text style={[styles.noteFolderBadgeText, { color: colors.primary }]}>
+                        Flashcard
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             );
@@ -1404,6 +1428,25 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
 
           </SafeAreaView>
         </SafeAreaProvider>
+      </Modal>
+
+      {/* Flashcard List Modal */}
+      <Modal
+        visible={!!flashcardNoteId}
+        animationType="slide"
+        presentationStyle="overFullScreen"
+        transparent={true}
+        statusBarTranslucent={true}
+        onRequestClose={() => setFlashcardNoteId(null)}
+      >
+        {flashcardNoteId && (
+          <FlashcardListScreen 
+            noteId={flashcardNoteId}
+            noteContent={flashcardNoteContent}
+            noteTitle={flashcardNoteTitle}
+            onClose={() => setFlashcardNoteId(null)}
+          />
+        )}
       </Modal>
 
       {/* Folder Create/Edit Dialog Modal */}
