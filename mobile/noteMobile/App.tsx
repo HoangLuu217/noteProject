@@ -37,6 +37,7 @@ import { ForgotPasswordScreen } from './src/screens/auth/ForgotPasswordScreen';
 import { VerifyOtpScreen } from './src/screens/auth/VerifyOtpScreen';
 import { ResetPasswordScreen } from './src/screens/auth/ResetPasswordScreen';
 import { parsePasswordResetLink } from './src/utils/authLink';
+import { checkInStreak } from './src/services/streakService';
 import * as Linking from 'expo-linking';
 import { Settings } from 'lucide-react-native';
 import { SettingsModal } from './src/components/SettingsModal';
@@ -138,7 +139,7 @@ function MainApp() {
   const lastWidth = useRef(screenWidth);
   const isFirstRender = useRef(true);
 
-  const { user, accessToken, updateProfile } = useAuthStore();
+  const { user, accessToken, updateProfile, setStreak } = useAuthStore();
 
   // Load tasks on mount or token change
   useEffect(() => {
@@ -157,7 +158,21 @@ function MainApp() {
         setTasks([]);
       }
     }
+
+    async function handleStreakCheckIn() {
+      if (accessToken) {
+        try {
+          const res = await checkInStreak(accessToken);
+          console.log(`📱 [Mobile] Streak check-in: ${res.message} (Streak: ${res.currentStreak})`);
+          setStreak(res.currentStreak);
+        } catch (e) {
+          console.error('📱 [Mobile] Failed to check-in streak:', e);
+        }
+      }
+    }
+
     loadTasks();
+    handleStreakCheckIn();
   }, [accessToken]);
   const { language } = useLanguage();
   const [avatarUrl, setAvatarUrl] = useState<any>(

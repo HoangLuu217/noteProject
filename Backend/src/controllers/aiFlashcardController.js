@@ -24,8 +24,17 @@ const getHistory = async (req, res, next) => {
   }
 };
 
+const getFlashcardsByNoteId = async (req, res, next) => {
+  try {
+    const flashcards = await aiService.getFlashcardsByNoteId(req.user._id, req.params.noteId);
+    return sendSuccess(res, 'Flashcards retrieved successfully', { flashcards });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   generateFlashcards,
-  generateFlashcards,
-  getHistory
+  getHistory,
+  getFlashcardsByNoteId
 };
