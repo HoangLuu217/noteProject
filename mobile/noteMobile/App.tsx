@@ -332,6 +332,8 @@ function AppContent() {
   const [authScreen, setAuthScreen] = useState<'login' | 'register' | 'forgot-password' | 'verify-otp' | 'reset-password'>('login');
   const [authParams, setAuthParams] = useState<any>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
+  const initialCheckDone = useRef(false);
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
 
@@ -345,9 +347,20 @@ function AppContent() {
   }, [setHydrated]);
 
   useEffect(() => {
-    if (isHydrated && accessToken) {
-      loadProfile().catch((err) => console.error('Load profile error:', err));
+    async function checkAuth() {
+      if (isHydrated && !initialCheckDone.current) {
+        initialCheckDone.current = true;
+        if (accessToken) {
+          try {
+            await loadProfile();
+          } catch (err) {
+            console.error('Initial loadProfile failed:', err);
+          }
+        }
+        setIsValidating(false);
+      }
     }
+    checkAuth();
   }, [isHydrated, accessToken]);
 
   const handleNavigate = (screen: typeof authScreen, params?: any) => {
@@ -381,7 +394,7 @@ function AppContent() {
     return () => subscription.remove();
   }, []);
 
-  if (!isHydrated) {
+  if (!isHydrated || isValidating) {
     return <LoadingScreen />;
   }
 

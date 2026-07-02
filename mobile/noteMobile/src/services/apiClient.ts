@@ -39,6 +39,39 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok || !payload.success) {
+    if (response.status === 401 && path !== '/auth/refresh' && path !== '/auth/firebase-login') {
+      try {
+        const { useAuthStore } = require('../stores/authStore');
+        const refreshed = await useAuthStore.getState().refreshSession();
+        if (refreshed) {
+          const newToken = useAuthStore.getState().accessToken;
+          const retryHeaders = { ...headers };
+          if (newToken) {
+            retryHeaders.Authorization = `Bearer ${newToken}`;
+          }
+          const retryResponse = await fetch(`${env.apiUrl}${path}`, {
+            method,
+            headers: retryHeaders,
+            body: body ? JSON.stringify(body) : undefined,
+          });
+          const retryText = await retryResponse.text();
+          let retryPayload: ApiResponse<T>;
+          try {
+            retryPayload = JSON.parse(retryText) as ApiResponse<T>;
+          } catch (err) {
+            throw new ApiError(
+              `Phản hồi từ server không hợp lệ sau khi thử lại (không phải JSON). HTTP Status: ${retryResponse.status}. Chi tiết: ${retryText.slice(0, 100)}`,
+              retryResponse.status
+            );
+          }
+          if (retryResponse.ok && retryPayload.success) {
+            return retryPayload.data as T;
+          }
+        }
+      } catch (refreshErr) {
+        console.error('Tự động làm mới session thất bại:', refreshErr);
+      }
+    }
     throw new ApiError(payload.message || 'Request failed', response.status);
   }
 

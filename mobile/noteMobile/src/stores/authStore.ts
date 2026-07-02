@@ -37,6 +37,8 @@ interface AuthState {
   refreshSession: () => Promise<boolean>;
 }
 
+let refreshPromise: Promise<boolean> | null = null;
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -162,7 +164,8 @@ export const useAuthStore = create<AuthState>()(
           const user = await fetchProfile(accessToken);
           set({ user });
         } catch (error) {
-          if (error instanceof ApiError && error.statusCode === 401) {
+          const err = error as any;
+          if (err && err.statusCode === 401) {
             const refreshed = await get().refreshSession();
             if (refreshed) await get().loadProfile();
           }
@@ -183,19 +186,31 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshSession: async () => {
+        if (refreshPromise) {
+          return refreshPromise;
+        }
+
         const { refreshToken: stored } = get();
         if (!stored) {
           set({ user: null, accessToken: null, refreshToken: null });
           return false;
         }
-        try {
-          const tokens = await refreshTokens(stored);
-          set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
-          return true;
-        } catch {
-          set({ user: null, accessToken: null, refreshToken: null });
-          return false;
-        }
+
+        refreshPromise = (async () => {
+          try {
+            const tokens = await refreshTokens(stored);
+            set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+            return true;
+          } catch (err) {
+            console.error('Refresh token request failed:', err);
+            set({ user: null, accessToken: null, refreshToken: null });
+            return false;
+          } finally {
+            refreshPromise = null;
+          }
+        })();
+
+        return refreshPromise;
       },
     }),
     {
