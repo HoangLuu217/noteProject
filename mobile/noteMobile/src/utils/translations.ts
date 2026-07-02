@@ -177,6 +177,20 @@ export const translations: Record<string, Record<string, string>> = {
     itemsCount: "{count} items",
     itemCount: "{count} item",
     expenseDetail: "Expense Details",
+
+    // Flashcard
+    flashcardCompleteTitle: "Excellent!",
+    flashcardCompleteDesc: "You have reviewed {count} flashcards.",
+    flashcardRestart: "Restart",
+    flashcardTitle: "Flashcard Review",
+    flashcardProgress: "{remembered} / {total} cards",
+    flashcardStreak: "Streak: {streak} days",
+    flashcardScore: "Score: {score}",
+    flashcardEmpty: "No cards in this section!",
+    flashcardTabAll: "All",
+    flashcardTabHard: "Hard",
+    flashcardTabEasy: "Easy",
+    flashcardTabForgotten: "Forgot",
   },
   vi: {
     // Brand/AppName
@@ -356,5 +370,19 @@ export const translations: Record<string, Record<string, string>> = {
     itemsCount: "{count} sản phẩm",
     itemCount: "{count} sản phẩm",
     expenseDetail: "Chi tiết chi tiêu",
+
+    // Flashcard
+    flashcardCompleteTitle: "Hoàn thành xuất sắc!",
+    flashcardCompleteDesc: "Bạn đã ôn tập xong {count} thẻ ghi nhớ.",
+    flashcardRestart: "Học lại từ đầu",
+    flashcardTitle: "Ôn tập Flashcard",
+    flashcardProgress: "{remembered} / {total} thẻ",
+    flashcardStreak: "Streak: {streak} ngày",
+    flashcardScore: "Điểm: {score}",
+    flashcardEmpty: "Không có thẻ nào trong mục này!",
+    flashcardTabAll: "Tất cả",
+    flashcardTabHard: "Khó",
+    flashcardTabEasy: "Dễ",
+    flashcardTabForgotten: "Quên",
   }
 };

@@ -24,8 +24,10 @@ interface AuthState {
   isHydrated: boolean;
   isLoading: boolean;
   pendingRegistration: PendingRegistration | null;
+  streak: number;
   setHydrated: (value: boolean) => void;
   setPendingRegistration: (value: PendingRegistration | null) => void;
+  setStreak: (value: number) => void;
   completeLogin: (result: LoginResponse) => void;
   login: (email: string, password: string) => Promise<void>;
   requestRegisterOtp: (email: string, fullName: string, password: string) => Promise<void>;
@@ -46,10 +48,13 @@ export const useAuthStore = create<AuthState>()(
       isHydrated: false,
       isLoading: false,
       pendingRegistration: null,
+      streak: 0,
 
       setHydrated: (value) => set({ isHydrated: value }),
 
       setPendingRegistration: (value) => set({ pendingRegistration: value }),
+
+      setStreak: (value) => set({ streak: value }),
 
       completeLogin: (result) => {
         set({
@@ -152,7 +157,7 @@ export const useAuthStore = create<AuthState>()(
           console.error('Firebase logout failed:', err);
         }
         
-        set({ user: null, accessToken: null, refreshToken: null, pendingRegistration: null });
+        set({ user: null, accessToken: null, refreshToken: null, pendingRegistration: null, streak: 0 });
       },
 
       loadProfile: async () => {
@@ -205,6 +210,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
+        streak: state.streak,
       }),
       onRehydrateStorage: () => (state, error) => {
         if (!error && state) {
