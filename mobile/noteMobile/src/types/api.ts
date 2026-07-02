@@ -11,5 +11,8 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
     this.statusCode = statusCode;
+    
+    // Set the prototype explicitly to make instanceof work when compiled to ES5
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
