@@ -1,4 +1,5 @@
 const taskService = require('../services/taskService');
+const aiTaskService = require('../services/aiTaskService');
 const { sendError, sendSuccess } = require('../utils/response');
 
 const getTasks = async (req, res, next) => {
@@ -65,10 +66,26 @@ const deleteTask = async (req, res, next) => {
   }
 };
 
+const generateTaskWithAI = async (req, res, next) => {
+  try {
+    console.log('📥 [Backend] Analyzing AI task prompt for user:', req.user._id);
+    const tasks = await aiTaskService.generateTasksFromPrompt(req.user._id, req.body);
+    console.log(`📤 [Backend] AI generated ${tasks.length} tasks successfully.`);
+    return sendSuccess(res, 'Tasks generated successfully', { tasks });
+  } catch (error) {
+    console.error('❌ [Backend] Error in generateTaskWithAI:', error);
+    if (error.statusCode) {
+      return sendError(res, error.message, error.statusCode);
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   getTasks,
   getTaskById,
   createTask,
   updateTask,
   deleteTask,
+  generateTaskWithAI,
 };
