@@ -14,6 +14,7 @@ import { createThemedStyles } from '../theme';
 import { useTheme } from './ThemeProvider';
 import { useLanguage } from './LanguageProvider';
 import { generateTaskFromPrompt } from '../services/geminiService';
+import { useAuthStore } from '../stores/authStore';
 
 interface AddAITaskModalProps {
   isOpen: boolean;
@@ -33,6 +34,8 @@ export function AddAITaskModal({ isOpen, onClose, onAdd, initialDate }: AddAITas
   const { t } = useLanguage();
   const styles = useStyles(colors);
 
+  const accessToken = useAuthStore((s) => s.accessToken);
+
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiErrorMessage, setAiErrorMessage] = useState<string | null>(null);
@@ -51,7 +54,7 @@ export function AddAITaskModal({ isOpen, onClose, onAdd, initialDate }: AddAITas
     setAiErrorMessage(null);
 
     try {
-      const generatedList = await generateTaskFromPrompt(aiPrompt, initialDate || '');
+      const generatedList = await generateTaskFromPrompt(aiPrompt, initialDate || '', accessToken || '');
       
       if (!generatedList || generatedList.length === 0) {
         throw new Error(t('aiError'));
