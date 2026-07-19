@@ -184,8 +184,8 @@ export function ExpensesScreen() {
         {/* Search, Filter inputs */}
         <View style={styles.filterSection}>
           <View style={styles.searchFilterRow}>
-            {/* Search Bar */}
-            <View style={styles.searchBarWrapper}>
+            {/* Search Bar & Date Filter in one single row */}
+            <View style={[styles.searchBarWrapper, { flex: 1 }]}>
               <Search size={16} color={colors.outline} style={styles.searchIcon} />
               <TextInput
                 value={searchQuery}
@@ -199,36 +199,33 @@ export function ExpensesScreen() {
                   <X size={16} color={colors.outline} />
                 </TouchableOpacity>
               ) : null}
-            </View>
 
-            {/* Single premium date range selector */}
-            <TouchableOpacity
-              style={styles.singleDateRangeBtn}
-              onPress={() => setIsCalendarModalOpen(true)}
-              activeOpacity={0.8}
-            >
-              <Calendar size={16} color={colors.primary} strokeWidth={2.5} />
-              <Text numberOfLines={1} style={styles.dateRangeBtnText}>
-                {startDate && endDate
-                  ? `${formatShortDate(startDate)} → ${formatShortDate(endDate)}`
-                  : language === 'vi'
-                  ? 'Chọn ngày'
-                  : 'Filter Date'}
-              </Text>
+              {/* Separator line between search and date filter */}
+              <View style={{ width: 1.5, height: 20, backgroundColor: colors.outlineVariant, marginHorizontal: 8, opacity: 0.5 }} />
+
+              {/* Clear date range button if active */}
               {startDate || endDate ? (
                 <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
+                  onPress={() => {
                     setStartDate('');
                     setEndDate('');
                   }}
-                  style={styles.clearDateBtn}
+                  style={{ padding: 4, marginRight: 4 }}
                   activeOpacity={0.7}
                 >
                   <X size={14} color={colors.outline} strokeWidth={2.5} />
                 </TouchableOpacity>
               ) : null}
-            </TouchableOpacity>
+
+              {/* Date Filter icon button at the end of the search bar */}
+              <TouchableOpacity
+                onPress={() => setIsCalendarModalOpen(true)}
+                activeOpacity={0.8}
+                style={{ padding: 4 }}
+              >
+                <Calendar size={18} color={startDate || endDate ? colors.primary : colors.outline} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Horizontally scrollable Categories pill list */}
