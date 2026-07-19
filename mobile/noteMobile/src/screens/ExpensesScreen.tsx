@@ -364,7 +364,7 @@ export function ExpensesScreen() {
         }}
         activeOpacity={0.85}
       >
-        <Plus size={24} color={colors.primary} strokeWidth={3} />
+        <Plus size={28} color={colors.primary} strokeWidth={3} />
       </TouchableOpacity>
 
       {/* Add / Edit Expense Modal */}
@@ -691,7 +691,7 @@ const useStyles = createThemedStyles((colors) => ({
   },
   fabBtn: {
     position: 'absolute',
-    bottom: 116,
+    bottom: 100,
     right: 24,
     width: 56,
     height: 56,
@@ -703,12 +703,12 @@ const useStyles = createThemedStyles((colors) => ({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
-    elevation: 6,
+    elevation: 8,
     borderWidth: 2,
     borderColor: 'rgba(0, 0, 0, 0.05)',
     borderBottomWidth: 5,
-    borderBottomColor: 'rgba(0, 103, 128, 0.2)',
-    zIndex: 40,
+    borderBottomColor: colors.primary + '33',
+    zIndex: 99,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

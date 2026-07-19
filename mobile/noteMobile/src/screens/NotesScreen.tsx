@@ -1738,10 +1738,10 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
       {/* Floating Action Button (FAB) */}
       <TouchableOpacity
         onPress={openAdd}
-        style={[styles.fab, { backgroundColor: colors.primaryContainer }]}
+        style={styles.fab}
         activeOpacity={0.85}
       >
-        <Plus size={28} color={colors.primary} />
+        <Plus size={28} color={colors.primary} strokeWidth={3} />
       </TouchableOpacity>
     </View>
   );
@@ -1760,13 +1760,14 @@ const useStyles = createThemedStyles((colors) => ({
     width: 56,
     height: 56,
     borderRadius: 28,
+    backgroundColor: colors.primaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
     zIndex: 99,
     borderWidth: 2,
     borderColor: 'rgba(0, 0, 0, 0.05)',
