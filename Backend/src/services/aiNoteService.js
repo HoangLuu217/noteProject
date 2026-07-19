@@ -50,9 +50,9 @@ Yêu cầu định dạng bắt buộc:
 2. Tuyệt đối KHÔNG sử dụng cú pháp markdown như dấu sao đôi ** hoặc dấu sao đơn * để tạo chữ in đậm hoặc danh sách.
 3. Để tạo danh sách gạch đầu dòng, hãy sử dụng dấu gạch ngang đầu dòng "-" ở đầu dòng mới (ví dụ: "- Nội dung chính...").
 4. Trả về trực tiếp văn bản tóm tắt hoàn chỉnh chứa các thẻ <b> và </b>, không bọc trong khối code hay định dạng JSON nào khác.
-5. Bản tóm tắt cần chi tiết, nhiều thông tin hữu ích, trình bày chuyên nghiệp bằng tiếng Việt.
-6. Tuyệt đối KHÔNG viết tiêu đề bản tóm tắt (ví dụ: "TÓM TẮT CHI TIẾT...", "TÓM TẮT:...").
-7. Tuyệt đối KHÔNG viết bất kỳ câu mở đầu, giới thiệu hay dẫn dắt nào (ví dụ: "Đây là bản tóm tắt...", "Dưới đây là tóm tắt..."). Hãy bắt đầu trực tiếp vào nội dung tóm tắt chính.
+5. Bản tóm tắt cần chi tiết, nhiều thông tin hữu ích, trình bày chuyên nghiệp bằng ngôn ngữ trùng khớp với ngôn ngữ chính của ghi chú đầu vào (Ví dụ: Ghi chú bằng tiếng Anh thì tóm tắt bằng tiếng Anh, ghi chú bằng tiếng Việt thì tóm tắt bằng tiếng Việt).
+6. Tuyệt đối KHÔNG viết tiêu đề bản tóm tắt (ví dụ: "TÓM TẮT CHI TIẾT...", "TÓM TẮT:...", "DETAILED SUMMARY...", "SUMMARY:").
+7. Tuyệt đối KHÔNG viết bất kỳ câu mở đầu, giới thiệu hay dẫn dắt nào (ví dụ: "Đây là bản tóm tắt...", "Dưới đây là tóm tắt...", "Here is the summary..."). Hãy bắt đầu trực tiếp vào nội dung tóm tắt chính.
 
 Nội dung ghi chú cần tóm tắt:
 ${content}`;
