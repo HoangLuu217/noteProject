@@ -9,7 +9,8 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { Plus, Sparkles } from 'lucide-react-native';
+import { Plus, Sparkles, Calendar, X } from 'lucide-react-native';
+import { DateRangeCalendarModal } from '../components/DateRangeCalendarModal';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TaskList } from '../components/TaskList';
@@ -121,15 +122,27 @@ export function TasksScreen({
   dateSelectorStyle?: 'slider' | 'calendar';
 }) {
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const styles = useStyles(colors);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   
   const accessToken = useAuthStore((s) => s.accessToken);
+
+  const formatShortDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}`;
+    }
+    return dateStr;
+  };
 
   // Request notifications permission on mount
   useEffect(() => {
@@ -268,13 +281,45 @@ export function TasksScreen({
     >
       {/* Date selector */}
       <View style={{ marginTop: 8, marginBottom: 24 }}>
-        <DateSelector
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-          setSwipeEnabled={setSwipeEnabled}
-          taskDates={tasks.filter(t => t.date).map(t => t.date as string)}
-          viewStyle={dateSelectorStyle}
-        />
+        {dateSelectorStyle === 'calendar' ? (
+          <View style={{ paddingHorizontal: 24 }}>
+            <TouchableOpacity
+              style={styles.singleDateRangeBtn}
+              onPress={() => setIsCalendarModalOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Calendar size={18} color={colors.primary} strokeWidth={2.5} />
+              <Text numberOfLines={1} style={styles.dateRangeBtnText}>
+                {startDate && endDate
+                  ? `${formatShortDate(startDate)} → ${formatShortDate(endDate)}`
+                  : language === 'vi'
+                  ? 'Chọn khoảng thời gian'
+                  : 'Select date range'}
+              </Text>
+              {startDate || endDate ? (
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setStartDate('');
+                    setEndDate('');
+                  }}
+                  style={styles.clearDateBtn}
+                  activeOpacity={0.7}
+                >
+                  <X size={14} color={colors.outline} strokeWidth={2.5} />
+                </TouchableOpacity>
+              ) : null}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <DateSelector
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            setSwipeEnabled={setSwipeEnabled}
+            taskDates={tasks.filter(t => t.date).map(t => t.date as string)}
+            viewStyle={dateSelectorStyle}
+          />
+        )}
       </View>
 
       <View style={{ paddingHorizontal: 24 }}>
@@ -313,7 +358,12 @@ export function TasksScreen({
 
         {/* Daily Progress Bar */}
         {(() => {
-          const dayTasks = tasks.filter((t) => !t.date || t.date === formatDate(selectedDate));
+          const dayTasks = tasks.filter((t) => {
+            if (dateSelectorStyle === 'calendar' && startDate && endDate) {
+              return !t.date || (t.date >= startDate && t.date <= endDate);
+            }
+            return !t.date || t.date === formatDate(selectedDate);
+          });
           const totalTasks = dayTasks.length;
           const completedTasks = dayTasks.filter((t) => t.completed).length;
           const progress = totalTasks > 0 ? completedTasks / totalTasks : 0;
@@ -323,7 +373,12 @@ export function TasksScreen({
           return (
             <View style={styles.progressContainer}>
               <View style={styles.progressTextRow}>
-                <Text style={styles.progressLabel}>{t('dailyProgress')}</Text>
+                <Text style={styles.progressLabel}>
+                  {dateSelectorStyle === 'calendar' && startDate && endDate
+                    ? (language === 'vi' ? 'Tiến độ khoảng thời gian' : 'Range Progress')
+                    : t('dailyProgress')
+                  }
+                </Text>
                 <Text style={styles.progressStats}>
                   {completedTasks}/{totalTasks} ({Math.round(progress * 100)}%)
                 </Text>
@@ -338,7 +393,12 @@ export function TasksScreen({
         {/* Task List */}
         <TaskList
           tasks={tasks
-            .filter((t) => !t.date || t.date === formatDate(selectedDate))
+            .filter((t) => {
+              if (dateSelectorStyle === 'calendar' && startDate && endDate) {
+                return !t.date || (t.date >= startDate && t.date <= endDate);
+              }
+              return !t.date || t.date === formatDate(selectedDate);
+            })
             .filter((t) => {
               if (filter === 'pending') return !t.completed;
               if (filter === 'completed') return t.completed;
@@ -398,14 +458,25 @@ export function TasksScreen({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAdd}
-        initialDate={formatDate(selectedDate)}
+        initialDate={dateSelectorStyle === 'calendar' && startDate ? startDate : formatDate(selectedDate)}
       />
 
       <AddAITaskModal
         isOpen={isAIModalOpen}
         onClose={() => setIsAIModalOpen(false)}
         onAdd={handleAdd}
-        initialDate={formatDate(selectedDate)}
+        initialDate={dateSelectorStyle === 'calendar' && startDate ? startDate : formatDate(selectedDate)}
+      />
+
+      <DateRangeCalendarModal
+        isOpen={isCalendarModalOpen}
+        onClose={() => setIsCalendarModalOpen(false)}
+        startDate={startDate}
+        endDate={endDate}
+        onSelectRange={(start, end) => {
+          setStartDate(start);
+          setEndDate(end);
+        }}
       />
     </ScrollView>
   );
@@ -629,5 +700,32 @@ const useStyles = createThemedStyles((colors) => ({
     fontSize: 13,
     color: colors.onSurfaceVariant,
     opacity: 0.8,
+  },
+  singleDateRangeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    height: 52,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  dateRangeBtnText: {
+    flex: 1,
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 14,
+    color: colors.onSurface,
+  },
+  clearDateBtn: {
+    padding: 4,
+    borderRadius: 100,
+    backgroundColor: colors.surface,
   },
 }));

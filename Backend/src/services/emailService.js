@@ -136,7 +136,7 @@ const getEmailTemplate = (title, contentHtml) => `
 
 const sendOtpEmail = async ({ email, code, fullName }) => {
   const subject = 'Mã xác thực đăng ký tài khoản ToDo';
-  
+
   const contentHtml = `
     <h1>Mã xác thực đăng ký</h1>
     <p>Xin chào <strong>${fullName}</strong>,</p>
@@ -177,9 +177,13 @@ const sendResetPasswordEmail = async ({ email, fullName, resetLink }) => {
     <h1>Đặt lại mật khẩu</h1>
     <p>Xin chào,</p>
     <p>Vui lòng bấm vào nút bên dưới để đặt lại mật khẩu <strong>ToDo</strong> cho tài khoản email <strong>${email}</strong> của bạn:</p>
-    <div style="margin: 20px 0;">
-      <a class="btn" href="${resetLink}" target="_blank">Đặt lại mật khẩu</a>
-    </div>
+    <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin: 20px auto; border-collapse: separate;">
+      <tr>
+        <td align="center" valign="middle" bgcolor="#4cc9f0" style="border-radius: 100px; border: 1.5px solid rgba(0, 0, 0, 0.05); border-bottom: 4px solid rgba(0, 103, 128, 0.2); box-shadow: 0 6px 16px rgba(0, 103, 128, 0.15); background-color: #4cc9f0;">
+          <a href="${resetLink}" target="_blank" style="display: inline-block; padding: 14px 32px; color: #006780 !important; font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; font-weight: 700; text-decoration: none; border-radius: 100px; white-space: nowrap;">Đặt lại mật khẩu</a>
+        </td>
+      </tr>
+    </table>
     <p>Nếu bạn không yêu cầu đặt lại mật khẩu, bạn có thể bỏ qua email này.</p>
     <p>Cảm ơn bạn,<br>Đội ngũ ToDo</p>
   `;
