@@ -114,12 +114,10 @@ export function TasksScreen({
   setSwipeEnabled,
   tasks,
   setTasks,
-  dateSelectorStyle,
 }: {
   setSwipeEnabled?: (enabled: boolean) => void;
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-  dateSelectorStyle?: 'slider' | 'calendar';
 }) {
   const { colors } = useTheme();
   const { t, language } = useLanguage();
@@ -281,45 +279,13 @@ export function TasksScreen({
     >
       {/* Date selector */}
       <View style={{ marginTop: 8, marginBottom: 24 }}>
-        {dateSelectorStyle === 'calendar' ? (
-          <View style={{ paddingHorizontal: 24 }}>
-            <TouchableOpacity
-              style={styles.singleDateRangeBtn}
-              onPress={() => setIsCalendarModalOpen(true)}
-              activeOpacity={0.8}
-            >
-              <Calendar size={18} color={colors.primary} strokeWidth={2.5} />
-              <Text numberOfLines={1} style={styles.dateRangeBtnText}>
-                {startDate && endDate
-                  ? `${formatShortDate(startDate)} → ${formatShortDate(endDate)}`
-                  : language === 'vi'
-                  ? 'Chọn khoảng thời gian'
-                  : 'Select date range'}
-              </Text>
-              {startDate || endDate ? (
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setStartDate('');
-                    setEndDate('');
-                  }}
-                  style={styles.clearDateBtn}
-                  activeOpacity={0.7}
-                >
-                  <X size={14} color={colors.outline} strokeWidth={2.5} />
-                </TouchableOpacity>
-              ) : null}
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <DateSelector
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-            setSwipeEnabled={setSwipeEnabled}
-            taskDates={tasks.filter(t => t.date).map(t => t.date as string)}
-            viewStyle={dateSelectorStyle}
-          />
-        )}
+        <DateSelector
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          setSwipeEnabled={setSwipeEnabled}
+          taskDates={tasks.filter(t => t.date).map(t => t.date as string)}
+          viewStyle="slider"
+        />
       </View>
 
       <View style={{ paddingHorizontal: 24 }}>
@@ -349,6 +315,19 @@ export function TasksScreen({
                 </TouchableOpacity>
               );
             })}
+
+            {/* Calendar Range Filter Button */}
+            <TouchableOpacity
+              style={[
+                styles.filterPill,
+                (startDate && endDate) ? styles.filterPillActive : styles.filterPillDefault,
+                { paddingHorizontal: 12 }
+              ]}
+              onPress={() => setIsCalendarModalOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Calendar size={18} color={(startDate && endDate) ? colors.primary : colors.outline} strokeWidth={2.5} />
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity onPress={() => setIsOptionModalOpen(true)} style={styles.addCircleBtn} activeOpacity={0.85}>
@@ -356,10 +335,31 @@ export function TasksScreen({
           </TouchableOpacity>
         </View>
 
+        {/* Active Range Banner */}
+        {startDate && endDate ? (
+          <View style={styles.activeRangeBanner}>
+            <Calendar size={16} color={colors.primary} strokeWidth={2.5} style={{ marginRight: 4 }} />
+            <Text style={styles.activeRangeText}>
+              {language === 'vi' ? 'Lọc từ: ' : 'Filtered: '}
+              {formatShortDate(startDate)} → {formatShortDate(endDate)}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setStartDate('');
+                setEndDate('');
+              }}
+              style={styles.clearRangeBtn}
+              activeOpacity={0.7}
+            >
+              <X size={14} color={colors.outline} strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Daily Progress Bar */}
         {(() => {
           const dayTasks = tasks.filter((t) => {
-            if (dateSelectorStyle === 'calendar' && startDate && endDate) {
+            if (startDate && endDate) {
               return !t.date || (t.date >= startDate && t.date <= endDate);
             }
             return !t.date || t.date === formatDate(selectedDate);
@@ -374,7 +374,7 @@ export function TasksScreen({
             <View style={styles.progressContainer}>
               <View style={styles.progressTextRow}>
                 <Text style={styles.progressLabel}>
-                  {dateSelectorStyle === 'calendar' && startDate && endDate
+                  {startDate && endDate
                     ? (language === 'vi' ? 'Tiến độ khoảng thời gian' : 'Range Progress')
                     : t('dailyProgress')
                   }
@@ -394,7 +394,7 @@ export function TasksScreen({
         <TaskList
           tasks={tasks
             .filter((t) => {
-              if (dateSelectorStyle === 'calendar' && startDate && endDate) {
+              if (startDate && endDate) {
                 return !t.date || (t.date >= startDate && t.date <= endDate);
               }
               return !t.date || t.date === formatDate(selectedDate);
@@ -458,14 +458,14 @@ export function TasksScreen({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAdd}
-        initialDate={dateSelectorStyle === 'calendar' && startDate ? startDate : formatDate(selectedDate)}
+        initialDate={startDate ? startDate : formatDate(selectedDate)}
       />
 
       <AddAITaskModal
         isOpen={isAIModalOpen}
         onClose={() => setIsAIModalOpen(false)}
         onAdd={handleAdd}
-        initialDate={dateSelectorStyle === 'calendar' && startDate ? startDate : formatDate(selectedDate)}
+        initialDate={startDate ? startDate : formatDate(selectedDate)}
       />
 
       <DateRangeCalendarModal
@@ -701,31 +701,27 @@ const useStyles = createThemedStyles((colors) => ({
     color: colors.onSurfaceVariant,
     opacity: 0.8,
   },
-  singleDateRangeBtn: {
+  activeRangeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 2,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 20,
+    backgroundColor: colors.primaryContainer + '1F',
+    borderWidth: 1.5,
+    borderColor: colors.primary + '33',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    height: 52,
+    paddingVertical: 10,
+    marginBottom: 16,
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
   },
-  dateRangeBtnText: {
+  activeRangeText: {
     flex: 1,
-    fontFamily: 'Quicksand-Medium',
+    fontFamily: 'Quicksand-Bold',
     fontSize: 14,
-    color: colors.onSurface,
+    color: colors.primary,
   },
-  clearDateBtn: {
+  clearRangeBtn: {
     padding: 4,
     borderRadius: 100,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceContainerHigh,
   },
 }));

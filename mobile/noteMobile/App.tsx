@@ -179,23 +179,6 @@ function MainApp() {
     user?.avatar ? { uri: user.avatar } : DEFAULT_AVATAR
   );
   const [profileName, setProfileName] = useState(user?.fullName || 'HoangLuu');
-  const [dateSelectorStyle, setDateSelectorStyle] = useState<'slider' | 'calendar'>('slider');
-
-  // Load user settings on mount
-  useEffect(() => {
-    async function loadUserSettings() {
-      try {
-        const savedStyle = await AsyncStorage.getItem('@date_selector_style');
-        if (savedStyle === 'slider' || savedStyle === 'calendar') {
-          setDateSelectorStyle(savedStyle);
-        }
-      } catch (e) {
-        console.error('Failed to load user settings:', e);
-      }
-    }
-    loadUserSettings();
-  }, []);
-
   // Sync with store user
   useEffect(() => {
     if (user) {
@@ -328,11 +311,11 @@ function MainApp() {
       />
 
       <View style={styles.content}>
-        <View style={[styles.page, { display: activeTab === 'tasks' ? 'flex' : 'none' }]}><TasksScreen tasks={tasks} setTasks={setTasks} setSwipeEnabled={setSwipeEnabled} dateSelectorStyle={dateSelectorStyle} /></View>
+        <View style={[styles.page, { display: activeTab === 'tasks' ? 'flex' : 'none' }]}><TasksScreen tasks={tasks} setTasks={setTasks} setSwipeEnabled={setSwipeEnabled} /></View>
         <View style={[styles.page, { display: activeTab === 'focus' ? 'flex' : 'none' }]}><FocusScreen /></View>
         <View style={[styles.page, { display: activeTab === 'notes' ? 'flex' : 'none' }]}><NotesScreen avatarUrl={avatarUrl} /></View>
         <View style={[styles.page, { display: activeTab === 'expenses' ? 'flex' : 'none' }]}><ExpensesScreen /></View>
-        <View style={[styles.page, { display: activeTab === 'profile' ? 'flex' : 'none' }]}><ProfileScreen avatarUrl={avatarUrl} onChangeAvatar={handleUpdateAvatar} tasks={tasks} profileName={profileName} onChangeName={handleUpdateName} dateSelectorStyle={dateSelectorStyle} setDateSelectorStyle={setDateSelectorStyle} /></View>
+        <View style={[styles.page, { display: activeTab === 'profile' ? 'flex' : 'none' }]}><ProfileScreen avatarUrl={avatarUrl} onChangeAvatar={handleUpdateAvatar} tasks={tasks} profileName={profileName} onChangeName={handleUpdateName} /></View>
       </View>
 
       <BottomNav activeTab={activeTab} onChangeTab={handleTabChange} scrollX={scrollX} />
