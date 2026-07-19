@@ -20,6 +20,7 @@ import {
   deleteNoteFromServer,
 } from '../services/noteService';
 import { FlashcardListScreen } from './FlashcardListScreen';
+import { getAiNoteSuggestion, AiNoteActionType } from '../services/aiNoteService';
 
 const FORMAT_COLORS = [
   { name: 'Red', color: '#E53935' },
@@ -193,6 +194,35 @@ function htmlToSpans(html: string) {
   }
   
   return { plainText, spans };
+}
+
+function getNoteDisplayTitle(
+  title: string | undefined,
+  content: string | undefined,
+  untitledPlaceholder: string
+): { title: string; isPlaceholder: boolean } {
+  const trimmedTitle = (title || '').trim();
+  const isUntitled = !trimmedTitle || trimmedTitle === 'Untitled' || trimmedTitle === 'Chưa đặt tên';
+
+  if (!isUntitled) {
+    return { title: trimmedTitle, isPlaceholder: false };
+  }
+
+  if (content) {
+    const { plainText } = htmlToSpans(content);
+    const cleanedText = plainText.trim();
+    if (cleanedText) {
+      // Split by line breaks, get the first non-empty line
+      const lines = cleanedText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length > 0) {
+        const firstLine = lines[0];
+        const truncated = firstLine.length > 40 ? firstLine.slice(0, 40).trim() + '...' : firstLine;
+        return { title: truncated, isPlaceholder: false };
+      }
+    }
+  }
+
+  return { title: untitledPlaceholder, isPlaceholder: true };
 }
 
 function spansToHtml(plainText: string, spans: { start: number; end: number; style: string; value?: string }[]) {
@@ -375,6 +405,17 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
   const [linkText, setLinkText] = useState('');
   const [linkIsSelected, setLinkIsSelected] = useState(false);
 
+  // AI Assistant states
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiLoadingMessage, setAiLoadingMessage] = useState('');
+  const [aiResult, setAiResult] = useState('');
+  const [aiResultModalVisible, setAiResultModalVisible] = useState(false);
+
+  // AI Cache states
+  const [lastSummarizedNoteId, setLastSummarizedNoteId] = useState<string | null>(null);
+  const [lastSummarizedContent, setLastSummarizedContent] = useState<string>('');
+  const [lastSummaryResult, setLastSummaryResult] = useState<string>('');
+
   const loadData = async () => {
     if (!accessToken) return;
     setIsLoading(true);
@@ -464,8 +505,33 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
     setIsAdding(true);
   };
 
-  const closeModal = () => {
+  const closeModal = async () => {
     setIsAdding(false);
+
+    // Save immediately before clearing state
+    if (accessToken && (content.trim() || title.trim())) {
+      const htmlContent = spansToHtml(content, spans);
+      try {
+        if (editingId) {
+          const updated = await updateNoteOnServer(accessToken, editingId, {
+            title: title.trim() || t('untitledNote'),
+            content: htmlContent,
+            folderId: noteFolderId,
+          });
+          setNotes(prevNotes => prevNotes.map(n => n.id === editingId ? updated : n));
+        } else {
+          const created = await createNoteOnServer(accessToken, {
+            title: title.trim() || t('untitledNote'),
+            content: htmlContent,
+            folderId: noteFolderId,
+          });
+          setNotes(prevNotes => [created, ...prevNotes]);
+        }
+      } catch (error) {
+        console.error('Failed to save on close:', error);
+      }
+    }
+
     setTimeout(() => {
       setEditingId(null);
       setTitle('');
@@ -482,38 +548,100 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
       setLinkText('');
       setLinkIsSelected(false);
       setNoteFolderId(null);
+      // Reset AI states
+      setAiLoading(false);
+      setAiLoadingMessage('');
+      setAiResult('');
+      setAiResultModalVisible(false);
+      setLastSummarizedNoteId(null);
+      setLastSummarizedContent('');
+      setLastSummaryResult('');
     }, 150);
   };
 
-  const handleSave = async () => {
-    if (!title.trim() && !content.trim()) return;
+  const handleAiAction = async (actionType: AiNoteActionType) => {
     if (!accessToken) return;
-    
-    // Convert plainText & spans back to HTML string
-    const htmlContent = spansToHtml(content, spans);
-    
+
+    if (actionType === 'SUMMARIZE' && !content.trim()) {
+      Alert.alert(language === 'vi' ? 'Thông báo' : 'Notice', language === 'vi' ? 'Ghi chú trống, không thể thực hiện hành động này.' : 'Note is empty, cannot perform this action.');
+      return;
+    }
+
+    // Check cache: if this is a SUMMARIZE action and current note ID and content match the last request, reuse the cache
+    if (actionType === 'SUMMARIZE' && editingId === lastSummarizedNoteId && content.trim() === lastSummarizedContent.trim() && lastSummaryResult) {
+      setAiResult(lastSummaryResult);
+      setAiResultModalVisible(true);
+      return;
+    }
+
+    // Set loading message
+    let msg = language === 'vi' ? 'AI đang tóm tắt ghi chú...' : 'AI is summarizing note...';
+
+    setAiLoadingMessage(msg);
+    setAiLoading(true);
+
     try {
-      if (editingId) {
-        const updated = await updateNoteOnServer(accessToken, editingId, {
-          title: title.trim() || t('untitledNote'),
-          content: htmlContent,
-          folderId: noteFolderId,
-        });
-        setNotes(notes.map(n => n.id === editingId ? updated : n));
-      } else {
-        const created = await createNoteOnServer(accessToken, {
-          title: title.trim() || t('untitledNote'),
-          content: htmlContent,
-          folderId: noteFolderId,
-        });
-        setNotes([created, ...notes]);
+      const resultText = await getAiNoteSuggestion(accessToken, {
+        actionType,
+        title,
+        content,
+        noteId: editingId
+      });
+
+      setAiResult(resultText);
+
+      // Save to cache
+      if (actionType === 'SUMMARIZE') {
+        setLastSummarizedNoteId(editingId);
+        setLastSummarizedContent(content.trim());
+        setLastSummaryResult(resultText);
       }
-      closeModal();
-    } catch (error) {
-      console.error('Failed to save note:', error);
-      Alert.alert(t('error') || 'Error', 'Failed to save note to server');
+
+      setAiResultModalVisible(true);
+    } catch (error: any) {
+      console.error('AI suggestion failed:', error);
+      Alert.alert(t('error') || 'Error', error?.message || 'AI request failed');
+    } finally {
+      setAiLoading(false);
+      setAiLoadingMessage('');
     }
   };
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (!isAdding) return;
+    if (!content.trim() && !title.trim()) return;
+
+    const timer = setTimeout(() => {
+      const saveNote = async () => {
+        if (!accessToken) return;
+        const htmlContent = spansToHtml(content, spans);
+        try {
+          if (editingId) {
+            const updated = await updateNoteOnServer(accessToken, editingId, {
+              title: title.trim() || t('untitledNote'),
+              content: htmlContent,
+              folderId: noteFolderId,
+            });
+            setNotes(prevNotes => prevNotes.map(n => n.id === editingId ? updated : n));
+          } else {
+            const created = await createNoteOnServer(accessToken, {
+              title: title.trim() || t('untitledNote'),
+              content: htmlContent,
+              folderId: noteFolderId,
+            });
+            setEditingId(created.id);
+            setNotes(prevNotes => [created, ...prevNotes]);
+          }
+        } catch (error) {
+          console.error('Failed to auto-save note:', error);
+        }
+      };
+      saveNote();
+    }, 1500); // Save 1.5 seconds after inactivity
+
+    return () => clearTimeout(timer);
+  }, [content, spans, title, noteFolderId, editingId, isAdding, accessToken]);
 
   const handleDeleteNote = async (id: string) => {
     if (!accessToken) return;
@@ -979,14 +1107,13 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
               styles.folderCardName,
               selectedFolderId === null && { color: colors.primary }
             ]}>
-              {t('allNotes')} ({notes.length})
+              {t('allNotes')}
             </Text>
           </TouchableOpacity>
 
           {/* Custom folders */}
           {folders.map(folder => {
             const isSelected = selectedFolderId === folder.id;
-            const folderNoteCount = notes.filter(n => n.folderId === folder.id).length;
             return (
               <TouchableOpacity
                 key={folder.id}
@@ -1003,7 +1130,7 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                   styles.folderCardName,
                   isSelected && { color: folder.color }
                 ]} numberOfLines={1}>
-                  {folder.name} ({folderNoteCount})
+                  {folder.name}
                 </Text>
               </TouchableOpacity>
             );
@@ -1041,9 +1168,20 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                 activeOpacity={0.85}
               >
                 <View style={styles.cardRow}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
-                    {note.title === 'Untitled' || note.title === 'Chưa đặt tên' ? t('untitledNote') : note.title}
-                  </Text>
+                  {(() => {
+                    const { title: displayTitle, isPlaceholder } = getNoteDisplayTitle(note.title, note.content, t('untitledNote'));
+                    return (
+                      <Text
+                        style={[
+                          styles.cardTitle,
+                          isPlaceholder && styles.placeholderTitle
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {displayTitle}
+                      </Text>
+                    );
+                  })()}
                   <TouchableOpacity onPress={() => confirmDeleteNote(note.id)} style={styles.delBtn}>
                     <Trash2 size={18} color={colors.outline} />
                   </TouchableOpacity>
@@ -1076,7 +1214,10 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                   {note.content ? (
                     <TouchableOpacity 
                       style={[styles.noteFolderBadge, { backgroundColor: colors.primaryContainer }]}
-                      onPress={() => openFlashcards(note.id, note.content, note.title)}
+                      onPress={() => {
+                        const { title: displayTitle } = getNoteDisplayTitle(note.title, note.content, t('untitledNote'));
+                        openFlashcards(note.id, note.content, displayTitle);
+                      }}
                     >
                       <Zap size={12} color={colors.primary} />
                       <Text style={[styles.noteFolderBadgeText, { color: colors.primary }]}>
@@ -1100,44 +1241,14 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
               style={{ flex: 1 }}
             >
               <View style={styles.editorContainer}>
-              {/* Header */}
               <View style={styles.editorHeader}>
                 <TouchableOpacity onPress={closeModal} style={styles.backBtn} activeOpacity={0.7}>
-                  <ChevronLeft size={24} color={colors.onSurface} strokeWidth={2.5} />
+                  <ChevronLeft size={20} color={colors.onSurface} strokeWidth={2.5} />
                 </TouchableOpacity>
-                <Text style={styles.editorTitle}>{editingId ? t('editNote') : t('newNote')}</Text>
-                
-                <View style={styles.editorRightActions}>
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    style={[styles.editorSaveBtn, (!title.trim() && !content.trim()) && styles.editorSaveBtnDisabled]}
-                    disabled={!title.trim() && !content.trim()}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[
-                      styles.editorSaveText,
-                      (!title.trim() && !content.trim()) && { color: colors.outline }
-                    ]}>
-                      {t('save')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
               </View>
 
-              {/* Title, folder selector and content fields */}
               <ScrollView style={styles.editorBody} contentContainerStyle={styles.editorScrollContent} showsVerticalScrollIndicator={false}>
 
-
-                <TextInput
-                  placeholder={t('noteTitlePlaceholder')}
-                  value={title}
-                  onChangeText={setTitle}
-                  style={styles.editorInputTitle}
-                  placeholderTextColor={colors.outlineVariant}
-                  underlineColorAndroid="transparent"
-                />
-
-                <View style={styles.editorDivider} />
                 <View style={{ position: 'relative', minHeight: 400 }}>
                   {/* Background Formatted Text */}
                   <View 
@@ -1230,6 +1341,16 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                     style={[styles.toolbarBtn, showColorSelector && styles.toolbarBtnActive]}
                   >
                     <Palette size={20} color={activeColor ? activeColor : colors.onSurface} />
+                  </TouchableOpacity>
+
+                  <View style={styles.toolbarDivider} />
+
+                  <TouchableOpacity 
+                    onPress={() => handleAiAction('SUMMARIZE')} 
+                    style={[styles.toolbarBtn, { backgroundColor: colors.primaryContainer }]}
+                    accessibilityLabel="Tóm tắt ghi chú"
+                  >
+                    <FileText size={20} color={colors.primary} />
                   </TouchableOpacity>
                 </View>
 
@@ -1426,6 +1547,85 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
               </Pressable>
             )}
 
+            {/* AI Loading Modal */}
+            <Modal
+              visible={aiLoading}
+              transparent={true}
+              animationType="fade"
+            >
+              <View style={styles.aiLoadingOverlay}>
+                <View style={styles.aiLoadingCard}>
+                  <FileText size={32} color={colors.primary} strokeWidth={2} />
+                  <Text style={styles.aiLoadingText}>{aiLoadingMessage || 'AI đang xử lý...'}</Text>
+                  <Text style={styles.aiLoadingSubtext}>Vui lòng đợi trong giây lát</Text>
+                </View>
+              </View>
+            </Modal>
+
+            {/* AI Result Preview Modal */}
+            <Modal
+              visible={aiResultModalVisible}
+              transparent={true}
+              animationType="slide"
+              onRequestClose={() => setAiResultModalVisible(false)}
+            >
+              <View style={styles.aiResultOverlay}>
+                <View style={styles.aiResultCard}>
+                  <View style={styles.aiResultHeader}>
+                    <FileText size={22} color={colors.primary} />
+                    <Text style={styles.aiResultTitle}>Bản tóm tắt từ AI</Text>
+                    <TouchableOpacity onPress={() => setAiResultModalVisible(false)}>
+                      <X size={20} color={colors.outline} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView style={styles.aiResultScroll} showsVerticalScrollIndicator={true}>
+                    {parseFormattedText(aiResult, colors, false, {
+                      fontFamily: 'Quicksand-Medium',
+                      fontSize: 15,
+                      color: colors.onSurface,
+                      lineHeight: 22,
+                    })}
+                  </ScrollView>
+
+                  <View style={styles.aiResultActions}>
+                    <TouchableOpacity 
+                      style={[styles.aiResultBtn, styles.aiResultBtnReplace]} 
+                      onPress={() => {
+                        const { plainText, spans: parsedSpans } = htmlToSpans(aiResult);
+                        setContent(plainText);
+                        setSpans(parsedSpans);
+                        setAiResultModalVisible(false);
+                      }}
+                    >
+                      <Text style={styles.aiResultBtnTextReplace}>Thay thế tất cả</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.aiResultBtn, styles.aiResultBtnAppend]} 
+                      onPress={() => {
+                        const divider = content.trim() ? '\n\n' : '';
+                        const { plainText, spans: parsedSpans } = htmlToSpans(aiResult);
+                        
+                        const shiftOffset = content.length + divider.length;
+                        const shiftedSpans = parsedSpans.map(span => ({
+                          ...span,
+                          start: span.start + shiftOffset,
+                          end: span.end + shiftOffset,
+                        }));
+                        
+                        setContent(content + divider + plainText);
+                        setSpans(mergeSpans([...spans, ...shiftedSpans]));
+                        setAiResultModalVisible(false);
+                      }}
+                    >
+                      <Text style={styles.aiResultBtnTextAppend}>Chèn vào cuối</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+
           </SafeAreaView>
         </SafeAreaProvider>
       </Modal>
@@ -1457,76 +1657,81 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
         onRequestClose={closeFolderModal}
       >
         <Pressable style={styles.modalOverlay} onPress={closeFolderModal}>
-          <View style={styles.folderDialog} onStartShouldSetResponder={() => true}>
-            <Text style={styles.folderDialogTitle}>
-              {editingFolderId ? t('editFolder') : t('newFolder')}
-            </Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <View style={styles.folderDialog} onStartShouldSetResponder={() => true}>
+              <Text style={styles.folderDialogTitle}>
+                {editingFolderId ? t('editFolder') : t('newFolder')}
+              </Text>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.dialogLabel}>{t('folderNamePlaceholder')}</Text>
-              <TextInput
-                style={styles.dialogInput}
-                placeholder={t('folderNamePlaceholder')}
-                placeholderTextColor={colors.outlineVariant}
-                value={folderName}
-                onChangeText={setFolderName}
-                autoFocus={true}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.dialogLabel}>{t('folderColor')}</Text>
-              <View style={styles.folderColorContainer}>
-                {FOLDER_COLORS.map(color => (
-                  <TouchableOpacity
-                    key={color}
-                    style={[
-                      styles.folderColorDot,
-                      { backgroundColor: color },
-                      folderColor === color && styles.folderColorDotActive
-                    ]}
-                    onPress={() => setFolderColor(color)}
-                  >
-                    {folderColor === color && <Check size={14} color="#fff" />}
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.inputGroup}>
+                <Text style={styles.dialogLabel}>{t('folderNamePlaceholder')}</Text>
+                <TextInput
+                  style={styles.dialogInput}
+                  placeholder={t('folderNamePlaceholder')}
+                  placeholderTextColor={colors.outlineVariant}
+                  value={folderName}
+                  onChangeText={setFolderName}
+                  autoFocus={true}
+                />
               </View>
-            </View>
 
-            <View style={styles.folderDialogButtons}>
-              {editingFolderId && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.dialogLabel}>{t('folderColor')}</Text>
+                <View style={styles.folderColorContainer}>
+                  {FOLDER_COLORS.map(color => (
+                    <TouchableOpacity
+                      key={color}
+                      style={[
+                        styles.folderColorDot,
+                        { backgroundColor: color },
+                        folderColor === color && styles.folderColorDotActive
+                      ]}
+                      onPress={() => setFolderColor(color)}
+                    >
+                      {folderColor === color && <Check size={14} color="#fff" />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.folderDialogButtons}>
+                {editingFolderId && (
+                  <TouchableOpacity
+                    style={[styles.dialogBtn, styles.dialogBtnDelete]}
+                    onPress={handleDeleteFolder}
+                    activeOpacity={0.8}
+                  >
+                    <Trash2 size={16} color="#fff" />
+                  </TouchableOpacity>
+                )}
+
+                <View style={{ flex: 1 }} />
+
                 <TouchableOpacity
-                  style={[styles.dialogBtn, styles.dialogBtnDelete]}
-                  onPress={handleDeleteFolder}
+                  style={[styles.dialogBtn, styles.dialogBtnCancel]}
+                  onPress={closeFolderModal}
                   activeOpacity={0.8}
                 >
-                  <Trash2 size={16} color="#fff" />
+                  <Text style={styles.dialogBtnTextCancel}>{t('cancel')}</Text>
                 </TouchableOpacity>
-              )}
-
-              <View style={{ flex: 1 }} />
-
-              <TouchableOpacity
-                style={[styles.dialogBtn, styles.dialogBtnCancel]}
-                onPress={closeFolderModal}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dialogBtnTextCancel}>{t('cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.dialogBtn,
-                  styles.dialogBtnConfirm,
-                  { backgroundColor: colors.primaryContainer, opacity: folderName.trim() ? 1 : 0.5 }
-                ]}
-                onPress={handleSaveFolder}
-                disabled={!folderName.trim()}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dialogBtnTextConfirm}>{t('save')}</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.dialogBtn,
+                    styles.dialogBtnConfirm,
+                    { backgroundColor: colors.primaryContainer, opacity: folderName.trim() ? 1 : 0.5 }
+                  ]}
+                  onPress={handleSaveFolder}
+                  disabled={!folderName.trim()}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dialogBtnTextConfirm}>{t('save')}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
 
@@ -1655,6 +1860,11 @@ const useStyles = createThemedStyles((colors) => ({
     flex: 1,
     marginRight: 8,
   },
+  placeholderTitle: {
+    fontFamily: 'Quicksand-Medium',
+    fontStyle: 'italic',
+    color: colors.outline,
+  },
   delBtn: {
     padding: 4,
   },
@@ -1692,20 +1902,20 @@ const useStyles = createThemedStyles((colors) => ({
   editorContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 4,
   },
   editorHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    marginBottom: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    marginBottom: 8,
   },
   backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surfaceContainerLow,
@@ -1755,7 +1965,7 @@ const useStyles = createThemedStyles((colors) => ({
   },
   editorBody: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
   },
   editorScrollContent: {
     paddingBottom: 40,
@@ -2140,5 +2350,250 @@ const useStyles = createThemedStyles((colors) => ({
   noteFolderBadgeText: {
     fontFamily: 'Quicksand-Bold',
     fontSize: 11,
+  },
+
+  // AI Styles
+  aiMenuDialog: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    borderWidth: 1.5,
+    borderColor: colors.outlineVariant,
+    borderBottomWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  aiMenuHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.outlineVariant,
+    paddingBottom: 12,
+  },
+  aiMenuTitle: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 18,
+    color: colors.onSurface,
+    flex: 1,
+    marginLeft: 8,
+  },
+  aiOptionsList: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  aiOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: 14,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    borderColor: colors.outlineVariant,
+  },
+  aiOptionIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  aiOptionTextContainer: {
+    flex: 1,
+  },
+  aiOptionName: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 15,
+    color: colors.onSurface,
+    marginBottom: 2,
+  },
+  aiOptionDesc: {
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    opacity: 0.8,
+  },
+  aiPromptContainer: {
+    marginBottom: 12,
+  },
+  aiPromptLabel: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 14,
+    color: colors.onSurface,
+    marginBottom: 10,
+  },
+  aiPromptInput: {
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 15,
+    color: colors.onSurface,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1.5,
+    borderColor: colors.outlineVariant,
+    borderRadius: 16,
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  aiPromptButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  aiPromptBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiPromptBtnCancel: {
+    backgroundColor: colors.surfaceContainerHigh,
+  },
+  aiPromptBtnSubmit: {
+    backgroundColor: colors.primaryContainer,
+  },
+  aiPromptBtnTextCancel: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+  },
+  aiPromptBtnTextSubmit: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 14,
+    color: colors.primary,
+  },
+  aiLoadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiLoadingCard: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 24,
+    padding: 30,
+    alignItems: 'center',
+    width: '80%',
+    borderWidth: 1.5,
+    borderColor: colors.outlineVariant,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  aiLoadingText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 16,
+    color: colors.onSurface,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  aiLoadingSubtext: {
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    opacity: 0.7,
+  },
+  aiResultOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  aiResultCard: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxHeight: '88%',
+    borderWidth: 1.5,
+    borderColor: colors.outlineVariant,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  aiResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.outlineVariant,
+    paddingBottom: 12,
+  },
+  aiResultTitle: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 18,
+    color: colors.onSurface,
+    flex: 1,
+    marginLeft: 8,
+  },
+  aiResultScroll: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 16,
+    borderWidth: 1.2,
+    borderColor: colors.outlineVariant,
+    padding: 16,
+    maxHeight: 480,
+    marginBottom: 20,
+  },
+  aiResultText: {
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 15,
+    color: colors.onSurface,
+    lineHeight: 22,
+  },
+  aiResultActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  aiResultBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiResultBtnReplace: {
+    backgroundColor: colors.surfaceContainerHigh,
+    borderWidth: 1.5,
+    borderColor: colors.outlineVariant,
+  },
+  aiResultBtnAppend: {
+    backgroundColor: colors.primaryContainer,
+  },
+  aiResultBtnTextReplace: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 14,
+    color: colors.onSurface,
+  },
+  aiResultBtnTextAppend: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 14,
+    color: colors.primary,
+  },
+  aiResultBtnClose: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  aiResultBtnTextClose: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 14,
+    color: colors.outline,
   },
 }));
