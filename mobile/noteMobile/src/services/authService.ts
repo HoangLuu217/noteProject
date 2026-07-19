@@ -8,6 +8,9 @@ import {
   signOut,
   updateProfile,
   verifyPasswordResetCode,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
 } from 'firebase/auth';
 import { getAuthInstance } from '../config/firebase';
 import { isFirebaseConfigured } from '../config/env';
@@ -236,3 +239,16 @@ export const getFirebaseErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
   return 'Đã xảy ra lỗi. Vui lòng thử lại';
 };
+
+export const changeUserPassword = async (oldPassword: string, newPassword: string): Promise<void> => {
+  const auth = ensureFirebaseAuth();
+  const user = auth.currentUser;
+  if (!user || !user.email) {
+    throw new Error('User not logged in or email not found');
+  }
+  const credential = EmailAuthProvider.credential(user.email, oldPassword);
+  await reauthenticateWithCredential(user, credential);
+  await updatePassword(user, newPassword);
+};
+
+

@@ -19,6 +19,7 @@ import { theme, createThemedStyles, ColorTheme } from '../theme';
 import { useTheme } from './ThemeProvider';
 import { useLanguage } from './LanguageProvider';
 import { useAuthStore } from '../stores/authStore';
+import { changeUserPassword, getFirebaseErrorMessage, sendPasswordReset } from '../services/authService';
 
 function LiquidToggle({
   value,
@@ -142,8 +143,6 @@ interface SettingsModalProps {
   onNameChange?: (name: string) => void;
   profileSub?: string;
   onSubChange?: (sub: string) => void;
-  dateSelectorStyle?: 'slider' | 'calendar';
-  setDateSelectorStyle?: (style: 'slider' | 'calendar') => void;
 }
 
 export function SettingsModal({
@@ -154,13 +153,99 @@ export function SettingsModal({
   onNameChange,
   profileSub,
   onSubChange,
-  dateSelectorStyle = 'slider',
-  setDateSelectorStyle
 }: SettingsModalProps) {
   const { isDark, toggleDarkMode, colorTheme, setColorTheme, colors } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const styles = useStyles(colors);
   const user = useAuthStore((s) => s.user);
+
+  const [isChangingPassword, setIsChangingPassword] = React.useState(false);
+  const [oldPassword, setOldPassword] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = React.useState('');
+  const [isSubmittingPassword, setIsSubmittingPassword] = React.useState(false);
+  const [changePasswordError, setChangePasswordError] = React.useState<string | null>(null);
+  const [changePasswordSuccess, setChangePasswordSuccess] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setIsChangingPassword(false);
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setChangePasswordError(null);
+      setChangePasswordSuccess(null);
+    }
+  }, [isOpen]);
+
+  const handleForgotPasswordInModal = async () => {
+    if (!user || !user.email) {
+      setChangePasswordError(language === 'en' ? 'User email not found' : 'Không tìm thấy email của bạn');
+      return;
+    }
+    setIsSubmittingPassword(true);
+    setChangePasswordError(null);
+    setChangePasswordSuccess(null);
+    try {
+      await sendPasswordReset(user.email);
+      setChangePasswordSuccess(
+        language === 'en'
+          ? 'Password reset email sent successfully!'
+          : 'Liên kết đặt lại mật khẩu đã được gửi đến email của bạn!'
+      );
+    } catch (e: any) {
+      console.error(e);
+      setChangePasswordError(getFirebaseErrorMessage(e));
+    } finally {
+      setIsSubmittingPassword(false);
+    }
+  };
+
+  const handleConfirmChangePassword = async () => {
+    if (!oldPassword) {
+      setChangePasswordError(language === 'en' ? 'Please enter your current password' : 'Vui lòng nhập mật khẩu hiện tại');
+      return;
+    }
+    if (!newPassword) {
+      setChangePasswordError(language === 'en' ? 'Please enter a new password' : 'Vui lòng nhập mật khẩu mới');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setChangePasswordError(language === 'en' ? 'Password must be at least 6 characters' : 'Mật khẩu phải có ít nhất 6 ký tự');
+      return;
+    }
+    if (newPassword === oldPassword) {
+      setChangePasswordError(language === 'en' ? 'New password must be different from current password' : 'Mật khẩu mới phải khác mật khẩu hiện tại');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordError(language === 'en' ? 'Passwords do not match' : 'Mật khẩu xác nhận không khớp');
+      return;
+    }
+
+    setIsSubmittingPassword(true);
+    setChangePasswordError(null);
+    setChangePasswordSuccess(null);
+
+    try {
+      await changeUserPassword(oldPassword, newPassword);
+      setChangePasswordSuccess(language === 'en' ? 'Password updated successfully!' : 'Cập nhật mật khẩu thành công!');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (e: any) {
+      console.error(e);
+      // If user enters incorrect current password, handle it nicely
+      if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
+        setChangePasswordError(language === 'en' ? 'Current password is incorrect' : 'Mật khẩu hiện tại không đúng');
+      } else {
+        setChangePasswordError(getFirebaseErrorMessage(e));
+      }
+    } finally {
+      setIsSubmittingPassword(false);
+    }
+  };
+
 
   const getModalTitle = () => {
     switch (type) {
@@ -174,14 +259,7 @@ export function SettingsModal({
     }
   };
 
-  const changeDateSelectorStyle = async (style: 'slider' | 'calendar') => {
-    try {
-      setDateSelectorStyle?.(style);
-      await AsyncStorage.setItem('@date_selector_style', style);
-    } catch (e) {
-      console.error('Failed to save date selector style:', e);
-    }
-  };
+
 
   const [pushEnabled, setPushEnabled] = React.useState(true);
   const [emailEnabled, setEmailEnabled] = React.useState(false);
@@ -283,13 +361,7 @@ export function SettingsModal({
               style={styles.inputBox}
               placeholderTextColor={colors.outlineVariant}
             />
-            <Text style={styles.inputLabel}>{t('profileSubtitle')}</Text>
-            <TextInput
-              value={subInput}
-              onChangeText={setSubInput}
-              style={styles.inputBox}
-              placeholderTextColor={colors.outlineVariant}
-            />
+
             <Text style={styles.inputLabel}>{t('email')}</Text>
             <TextInput
               defaultValue={user?.email || "hoangluu@taskflow.demo"}
@@ -322,15 +394,7 @@ export function SettingsModal({
               <LiquidToggle value={isDark} onValueChange={toggleDarkMode} colors={colors} styles={styles} />
             </View>
  
-            <View style={styles.settingsSelectorRow}>
-              <Text style={styles.selectorLabel}>{t('calendarView')}</Text>
-              <LiquidPillToggle
-                label={dateSelectorStyle === 'slider' ? t('slider') : t('calendar')}
-                onPress={() => changeDateSelectorStyle(dateSelectorStyle === 'slider' ? 'calendar' : 'slider')}
-                colors={colors}
-                styles={styles}
-              />
-            </View>
+
  
             <View style={styles.themeGrid}>
               {[
@@ -363,16 +427,84 @@ export function SettingsModal({
           </View>
         );
       case 'Privacy':
+        if (isChangingPassword) {
+          return (
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>{language === 'en' ? 'Current Password' : 'Mật khẩu hiện tại'}</Text>
+              <TextInput
+                value={oldPassword}
+                onChangeText={setOldPassword}
+                secureTextEntry
+                style={styles.inputBox}
+                placeholderTextColor={colors.outlineVariant}
+              />
+              <Text style={styles.inputLabel}>{language === 'en' ? 'New Password' : 'Mật khẩu mới'}</Text>
+              <TextInput
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                style={styles.inputBox}
+                placeholderTextColor={colors.outlineVariant}
+                placeholder={language === 'en' ? 'At least 6 characters' : 'Tối thiểu 6 ký tự'}
+              />
+              <Text style={styles.inputLabel}>{language === 'en' ? 'Confirm New Password' : 'Xác nhận mật khẩu mới'}</Text>
+              <TextInput
+                value={confirmNewPassword}
+                onChangeText={setConfirmNewPassword}
+                secureTextEntry
+                style={styles.inputBox}
+                placeholderTextColor={colors.outlineVariant}
+              />
+              
+              <TouchableOpacity
+                onPress={handleForgotPasswordInModal}
+                style={{ alignSelf: 'flex-end', marginTop: 4, marginRight: 8 }}
+                activeOpacity={0.7}
+                disabled={isSubmittingPassword}
+              >
+                <Text style={{ fontFamily: 'Quicksand-Bold', fontSize: 14, color: colors.primary }}>
+                  {language === 'en' ? 'Forgot Password?' : 'Quên mật khẩu?'}
+                </Text>
+              </TouchableOpacity>
+
+              {changePasswordError && (
+                <Text style={{ color: colors.error, fontSize: 13, fontFamily: 'Quicksand-Bold', marginHorizontal: 8, marginTop: 4 }}>{changePasswordError}</Text>
+              )}
+              {changePasswordSuccess && (
+                <Text style={{ color: colors.primary, fontSize: 13, fontFamily: 'Quicksand-Bold', marginHorizontal: 8, marginTop: 4 }}>{changePasswordSuccess}</Text>
+              )}
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                <TouchableOpacity
+                  style={[styles.privacyBtn, { flex: 1, alignItems: 'center', backgroundColor: colors.surfaceVariant }]}
+                  onPress={() => {
+                    setIsChangingPassword(false);
+                    setOldPassword('');
+                    setNewPassword('');
+                    setConfirmNewPassword('');
+                    setChangePasswordError(null);
+                    setChangePasswordSuccess(null);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.privacyBtnText}>{language === 'en' ? 'Cancel' : 'Hủy'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.privacyBtn, { flex: 1, alignItems: 'center', backgroundColor: colors.primary }]}
+                  onPress={handleConfirmChangePassword}
+                  activeOpacity={0.8}
+                  disabled={isSubmittingPassword}
+                >
+                  <Text style={[styles.privacyBtnText, { color: '#fff' }]}>{language === 'en' ? 'Save' : 'Lưu'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        }
+
         return (
           <View style={styles.section}>
-            <TouchableOpacity style={styles.privacyBtn} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.privacyBtn} activeOpacity={0.8} onPress={() => setIsChangingPassword(true)}>
               <Text style={styles.privacyBtnText}>{t('changePassword')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.privacyBtn} activeOpacity={0.8}>
-              <Text style={styles.privacyBtnText}>{t('twoFactor')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.privacyBtn, styles.deleteBtn]} activeOpacity={0.8}>
-              <Text style={styles.deleteBtnText}>{t('deleteAccount')}</Text>
             </TouchableOpacity>
           </View>
         );

@@ -114,12 +114,10 @@ export function TasksScreen({
   setSwipeEnabled,
   tasks,
   setTasks,
-  dateSelectorStyle,
 }: {
   setSwipeEnabled?: (enabled: boolean) => void;
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-  dateSelectorStyle?: 'slider' | 'calendar';
 }) {
   const { colors } = useTheme();
   const { t, language } = useLanguage();
@@ -274,140 +272,149 @@ export function TasksScreen({
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Date selector */}
-      <View style={{ marginTop: 8, marginBottom: 24 }}>
-        {dateSelectorStyle === 'calendar' ? (
-          <View style={{ paddingHorizontal: 24 }}>
-            <TouchableOpacity
-              style={styles.singleDateRangeBtn}
-              onPress={() => setIsCalendarModalOpen(true)}
-              activeOpacity={0.8}
-            >
-              <Calendar size={18} color={colors.primary} strokeWidth={2.5} />
-              <Text numberOfLines={1} style={styles.dateRangeBtnText}>
-                {startDate && endDate
-                  ? `${formatShortDate(startDate)} → ${formatShortDate(endDate)}`
-                  : language === 'vi'
-                  ? 'Chọn khoảng thời gian'
-                  : 'Select date range'}
-              </Text>
-              {startDate || endDate ? (
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setStartDate('');
-                    setEndDate('');
-                  }}
-                  style={styles.clearDateBtn}
-                  activeOpacity={0.7}
-                >
-                  <X size={14} color={colors.outline} strokeWidth={2.5} />
-                </TouchableOpacity>
-              ) : null}
-            </TouchableOpacity>
-          </View>
-        ) : (
+    <View style={styles.container}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Date selector */}
+        <View style={{ marginTop: 8, marginBottom: 24 }}>
           <DateSelector
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
             setSwipeEnabled={setSwipeEnabled}
             taskDates={tasks.filter(t => t.date).map(t => t.date as string)}
-            viewStyle={dateSelectorStyle}
+            viewStyle="slider"
           />
-        )}
-      </View>
-
-      <View style={{ paddingHorizontal: 24 }}>
-        {/* Header Action Row (Filters + Compact Plus Button) */}
-        <View style={styles.headerActionRow}>
-          <View style={styles.filterRow}>
-            {(['all', 'pending', 'completed'] as const).map((f) => {
-              const isActive = filter === f;
-              return (
-                <TouchableOpacity
-                  key={f}
-                  style={[
-                    styles.filterPill,
-                    isActive ? styles.filterPillActive : styles.filterPillDefault,
-                  ]}
-                  onPress={() => setFilter(f)}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.filterText,
-                      isActive ? styles.filterTextActive : styles.filterTextDefault,
-                    ]}
-                  >
-                    {f === 'all' ? t('filterAll') : f === 'pending' ? t('filterPending') : t('filterCompleted')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <TouchableOpacity onPress={() => setIsOptionModalOpen(true)} style={styles.addCircleBtn} activeOpacity={0.85}>
-            <Plus size={24} color={colors.primary} strokeWidth={3} />
-          </TouchableOpacity>
         </View>
 
-        {/* Daily Progress Bar */}
-        {(() => {
-          const dayTasks = tasks.filter((t) => {
-            if (dateSelectorStyle === 'calendar' && startDate && endDate) {
-              return !t.date || (t.date >= startDate && t.date <= endDate);
-            }
-            return !t.date || t.date === formatDate(selectedDate);
-          });
-          const totalTasks = dayTasks.length;
-          const completedTasks = dayTasks.filter((t) => t.completed).length;
-          const progress = totalTasks > 0 ? completedTasks / totalTasks : 0;
+        <View style={{ paddingHorizontal: 24 }}>
+          {/* Header Action Row (Filters) */}
+          <View style={styles.headerActionRow}>
+            <View style={styles.filterRow}>
+              {(['all', 'pending', 'completed'] as const).map((f) => {
+                const isActive = filter === f;
+                return (
+                  <TouchableOpacity
+                    key={f}
+                    style={[
+                      styles.filterPill,
+                      isActive ? styles.filterPillActive : styles.filterPillDefault,
+                    ]}
+                    onPress={() => setFilter(f)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        isActive ? styles.filterTextActive : styles.filterTextDefault,
+                      ]}
+                    >
+                      {f === 'all' ? t('filterAll') : f === 'pending' ? t('filterPending') : t('filterCompleted')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
 
-          if (totalTasks === 0) return null;
-
-          return (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressTextRow}>
-                <Text style={styles.progressLabel}>
-                  {dateSelectorStyle === 'calendar' && startDate && endDate
-                    ? (language === 'vi' ? 'Tiến độ khoảng thời gian' : 'Range Progress')
-                    : t('dailyProgress')
-                  }
-                </Text>
-                <Text style={styles.progressStats}>
-                  {completedTasks}/{totalTasks} ({Math.round(progress * 100)}%)
-                </Text>
-              </View>
-              <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
-              </View>
+              {/* Calendar Range Filter Button */}
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  (startDate && endDate) ? styles.filterPillActive : styles.filterPillDefault,
+                  { paddingHorizontal: 12 }
+                ]}
+                onPress={() => setIsCalendarModalOpen(true)}
+                activeOpacity={0.8}
+              >
+                <Calendar size={18} color={(startDate && endDate) ? colors.primary : colors.outline} strokeWidth={2.5} />
+              </TouchableOpacity>
             </View>
-          );
-        })()}
+          </View>
 
-        {/* Task List */}
-        <TaskList
-          tasks={tasks
-            .filter((t) => {
-              if (dateSelectorStyle === 'calendar' && startDate && endDate) {
+          {/* Active Range Banner */}
+          {startDate && endDate ? (
+            <View style={styles.activeRangeBanner}>
+              <Calendar size={16} color={colors.primary} strokeWidth={2.5} style={{ marginRight: 4 }} />
+              <Text style={styles.activeRangeText}>
+                {language === 'vi' ? 'Lọc từ: ' : 'Filtered: '}
+                {formatShortDate(startDate)} → {formatShortDate(endDate)}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setStartDate('');
+                  setEndDate('');
+                }}
+                style={styles.clearRangeBtn}
+                activeOpacity={0.7}
+              >
+                <X size={14} color={colors.outline} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {/* Daily Progress Bar */}
+          {(() => {
+            const dayTasks = tasks.filter((t) => {
+              if (startDate && endDate) {
                 return !t.date || (t.date >= startDate && t.date <= endDate);
               }
               return !t.date || t.date === formatDate(selectedDate);
-            })
-            .filter((t) => {
-              if (filter === 'pending') return !t.completed;
-              if (filter === 'completed') return t.completed;
-              return true;
-            })}
-          onToggle={handleToggle}
-          onDelete={handleDelete}
-        />
-      </View>
+            });
+            const totalTasks = dayTasks.length;
+            const completedTasks = dayTasks.filter((t) => t.completed).length;
+            const progress = totalTasks > 0 ? completedTasks / totalTasks : 0;
+
+            if (totalTasks === 0) return null;
+
+            return (
+              <View style={styles.progressContainer}>
+                <View style={styles.progressTextRow}>
+                  <Text style={styles.progressLabel}>
+                    {startDate && endDate
+                      ? (language === 'vi' ? 'Tiến độ khoảng thời gian' : 'Range Progress')
+                      : t('dailyProgress')
+                    }
+                  </Text>
+                  <Text style={styles.progressStats}>
+                    {completedTasks}/{totalTasks} ({Math.round(progress * 100)}%)
+                  </Text>
+                </View>
+                <View style={styles.progressBarBg}>
+                  <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
+                </View>
+              </View>
+            );
+          })()}
+
+          {/* Task List */}
+          <TaskList
+            tasks={tasks
+              .filter((t) => {
+                if (startDate && endDate) {
+                  return !t.date || (t.date >= startDate && t.date <= endDate);
+                }
+                return !t.date || t.date === formatDate(selectedDate);
+              })
+              .filter((t) => {
+                if (filter === 'pending') return !t.completed;
+                if (filter === 'completed') return t.completed;
+                return true;
+              })}
+            onToggle={handleToggle}
+            onDelete={handleDelete}
+          />
+        </View>
+      </ScrollView>
+
+      {/* Floating Action Button (FAB) */}
+      <TouchableOpacity
+        style={styles.fabBtn}
+        onPress={() => setIsOptionModalOpen(true)}
+        activeOpacity={0.85}
+      >
+        <Plus size={28} color={colors.primary} strokeWidth={3} />
+      </TouchableOpacity>
 
       {/* Option Selection bottom sheet */}
       <Modal visible={isOptionModalOpen} transparent animationType="slide" onRequestClose={() => setIsOptionModalOpen(false)}>
@@ -458,14 +465,14 @@ export function TasksScreen({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAdd}
-        initialDate={dateSelectorStyle === 'calendar' && startDate ? startDate : formatDate(selectedDate)}
+        initialDate={startDate ? startDate : formatDate(selectedDate)}
       />
 
       <AddAITaskModal
         isOpen={isAIModalOpen}
         onClose={() => setIsAIModalOpen(false)}
         onAdd={handleAdd}
-        initialDate={dateSelectorStyle === 'calendar' && startDate ? startDate : formatDate(selectedDate)}
+        initialDate={startDate ? startDate : formatDate(selectedDate)}
       />
 
       <DateRangeCalendarModal
@@ -478,7 +485,7 @@ export function TasksScreen({
           setEndDate(end);
         }}
       />
-    </ScrollView>
+    </View>
   );
 }
 
@@ -540,22 +547,26 @@ const useStyles = createThemedStyles((colors) => ({
     gap: 8,
     alignItems: 'center',
   },
-  addCircleBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  fabBtn: {
+    position: 'absolute',
+    bottom: 100,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.primaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
     borderWidth: 2,
     borderColor: 'rgba(0, 0, 0, 0.05)',
     borderBottomWidth: 5,
     borderBottomColor: colors.primary + '33',
+    zIndex: 99,
   },
   filterPill: {
     paddingVertical: 10,
@@ -701,31 +712,27 @@ const useStyles = createThemedStyles((colors) => ({
     color: colors.onSurfaceVariant,
     opacity: 0.8,
   },
-  singleDateRangeBtn: {
+  activeRangeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 2,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 20,
+    backgroundColor: colors.primaryContainer + '1F',
+    borderWidth: 1.5,
+    borderColor: colors.primary + '33',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    height: 52,
+    paddingVertical: 10,
+    marginBottom: 16,
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
   },
-  dateRangeBtnText: {
+  activeRangeText: {
     flex: 1,
-    fontFamily: 'Quicksand-Medium',
+    fontFamily: 'Quicksand-Bold',
     fontSize: 14,
-    color: colors.onSurface,
+    color: colors.primary,
   },
-  clearDateBtn: {
+  clearRangeBtn: {
     padding: 4,
     borderRadius: 100,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceContainerHigh,
   },
 }));

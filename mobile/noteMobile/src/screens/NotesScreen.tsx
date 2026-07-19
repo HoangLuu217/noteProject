@@ -1556,8 +1556,12 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
               <View style={styles.aiLoadingOverlay}>
                 <View style={styles.aiLoadingCard}>
                   <FileText size={32} color={colors.primary} strokeWidth={2} />
-                  <Text style={styles.aiLoadingText}>{aiLoadingMessage || 'AI đang xử lý...'}</Text>
-                  <Text style={styles.aiLoadingSubtext}>Vui lòng đợi trong giây lát</Text>
+                  <Text style={styles.aiLoadingText}>
+                    {aiLoadingMessage || (language === 'vi' ? 'AI đang xử lý...' : 'AI is processing...')}
+                  </Text>
+                  <Text style={styles.aiLoadingSubtext}>
+                    {language === 'vi' ? 'Vui lòng đợi trong giây lát' : 'Please wait a moment...'}
+                  </Text>
                 </View>
               </View>
             </Modal>
@@ -1573,19 +1577,23 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                 <View style={styles.aiResultCard}>
                   <View style={styles.aiResultHeader}>
                     <FileText size={22} color={colors.primary} />
-                    <Text style={styles.aiResultTitle}>Bản tóm tắt từ AI</Text>
+                    <Text style={styles.aiResultTitle}>
+                      {language === 'vi' ? 'Bản tóm tắt từ AI' : 'AI Summary'}
+                    </Text>
                     <TouchableOpacity onPress={() => setAiResultModalVisible(false)}>
                       <X size={20} color={colors.outline} />
                     </TouchableOpacity>
                   </View>
 
                   <ScrollView style={styles.aiResultScroll} showsVerticalScrollIndicator={true}>
-                    {parseFormattedText(aiResult, colors, false, {
-                      fontFamily: 'Quicksand-Medium',
-                      fontSize: 15,
-                      color: colors.onSurface,
-                      lineHeight: 22,
-                    })}
+                    <Text style={{ fontFamily: 'Quicksand-Medium', fontSize: 15, color: colors.onSurface, lineHeight: 22 }}>
+                      {parseFormattedText(aiResult, colors, false, {
+                        fontFamily: 'Quicksand-Medium',
+                        fontSize: 15,
+                        color: colors.onSurface,
+                        lineHeight: 22,
+                      })}
+                    </Text>
                   </ScrollView>
 
                   <View style={styles.aiResultActions}>
@@ -1598,7 +1606,9 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                         setAiResultModalVisible(false);
                       }}
                     >
-                      <Text style={styles.aiResultBtnTextReplace}>Thay thế tất cả</Text>
+                      <Text style={styles.aiResultBtnTextReplace}>
+                        {language === 'vi' ? 'Thay thế tất cả' : 'Replace all'}
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity 
@@ -1619,7 +1629,9 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
                         setAiResultModalVisible(false);
                       }}
                     >
-                      <Text style={styles.aiResultBtnTextAppend}>Chèn vào cuối</Text>
+                      <Text style={styles.aiResultBtnTextAppend}>
+                        {language === 'vi' ? 'Chèn vào cuối' : 'Insert at end'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1738,10 +1750,10 @@ export function NotesScreen({ avatarUrl }: NotesScreenProps) {
       {/* Floating Action Button (FAB) */}
       <TouchableOpacity
         onPress={openAdd}
-        style={[styles.fab, { backgroundColor: colors.primaryContainer }]}
+        style={styles.fab}
         activeOpacity={0.85}
       >
-        <Plus size={28} color={colors.primary} />
+        <Plus size={28} color={colors.primary} strokeWidth={3} />
       </TouchableOpacity>
     </View>
   );
@@ -1760,13 +1772,14 @@ const useStyles = createThemedStyles((colors) => ({
     width: 56,
     height: 56,
     borderRadius: 28,
+    backgroundColor: colors.primaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
     zIndex: 99,
     borderWidth: 2,
     borderColor: 'rgba(0, 0, 0, 0.05)',

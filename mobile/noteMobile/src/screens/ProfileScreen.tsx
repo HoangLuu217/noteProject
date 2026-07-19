@@ -81,11 +81,9 @@ interface ProfileScreenProps {
   tasks?: Task[];
   profileName: string;
   onChangeName: (name: string) => void;
-  dateSelectorStyle: 'slider' | 'calendar';
-  setDateSelectorStyle: (style: 'slider' | 'calendar') => void;
 }
 
-export function ProfileScreen({ avatarUrl, onChangeAvatar, tasks = [], profileName, onChangeName, dateSelectorStyle, setDateSelectorStyle }: ProfileScreenProps) {
+export function ProfileScreen({ avatarUrl, onChangeAvatar, tasks = [], profileName, onChangeName }: ProfileScreenProps) {
   const { colors } = useTheme();
   const { language, t } = useLanguage();
   const styles = useStyles(colors);
@@ -203,7 +201,7 @@ export function ProfileScreen({ avatarUrl, onChangeAvatar, tasks = [], profileNa
           </View>
         </TouchableOpacity>
         <Text style={styles.profileName}>{profileName}</Text>
-        <Text style={styles.profileSub}>{profileSub}</Text>
+
       </View>
 
       {/* Stats */}
@@ -266,17 +264,6 @@ export function ProfileScreen({ avatarUrl, onChangeAvatar, tasks = [], profileNa
         type={activeModal}
         profileName={profileName}
         onNameChange={onChangeName}
-        profileSub={profileSub}
-        onSubChange={async (newSub) => {
-          setProfileSub(newSub);
-          try {
-            await AsyncStorage.setItem('@profile_sub', newSub);
-          } catch (e) {
-            console.error(e);
-          }
-        }}
-        dateSelectorStyle={dateSelectorStyle}
-        setDateSelectorStyle={setDateSelectorStyle}
       />
     </ScrollView>
   );
