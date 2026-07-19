@@ -8,6 +8,7 @@ const noteRoutes = require('./routes/noteRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const aiFlashcardRoutes = require('./routes/aiFlashcardRoutes');
+const aiNoteRoutes = require('./routes/aiNoteRoutes');
 const streakRoutes = require('./routes/streakRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
@@ -38,6 +39,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/ai-flashcards', aiFlashcardRoutes);
+app.use('/api/ai-notes', aiNoteRoutes);
 app.use('/api/streak', streakRoutes);
 
 app.use(notFoundHandler);
