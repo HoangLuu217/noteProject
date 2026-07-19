@@ -9,21 +9,7 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyAR984XmyEtLklf1YNbpAuT6enIToKVJgY",
-        "EXPO_PUBLIC_GEMINI_MODEL": "gemini-2.5-flash",
-        "EXPO_PUBLIC_API_URL": "https://noteproject-f7ou.onrender.com/api",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDbyTfZBKJ2SShkTkt3ol8xrGUUs8adiRY",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "note-f6b47.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "note-f6b47",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "note-f6b47.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "862670529475",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:862670529475:web:e320f96c5a2b431925d376",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "862670529475-4l8mukdd6mtt9rmpmt9d32covl6il1ar.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "862670529475-504ghlhm914k0p93rio7p0la7rffmirj.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "862670529475-suslmbmm50f9ciofrsn153rhke7679jj.apps.googleusercontent.com"
-      }
+      "distribution": "internal"
     },
     "production": {
       "autoIncrement": true
