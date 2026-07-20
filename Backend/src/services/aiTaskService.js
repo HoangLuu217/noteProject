@@ -20,7 +20,7 @@ const generateTasksFromPrompt = async (userId, data) => {
   // Set up dates
   const todayDate = today ? new Date(today) : new Date();
   const dayName = new Intl.DateTimeFormat('vi-VN', { weekday: 'long' }).format(todayDate);
-  
+
   const formatDateLocal = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -68,7 +68,7 @@ QUAN TRỌNG VỀ PHÂN TÍCH THỜI GIAN VÀ ĐA NGÀY:
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: process.env.GEMINI_MODEL_TASK || 'gemini-2.5-flash',
     systemInstruction,
     generationConfig: {
       responseMimeType: 'application/json',

@@ -7,7 +7,7 @@ import {
   PanResponder,
   useWindowDimensions,
 } from 'react-native';
-import { ClipboardList, Smile, Timer, StickyNote, Wallet } from 'lucide-react-native';
+import { ClipboardList, Smile, Timer, StickyNote, Wallet, Layers } from 'lucide-react-native';
 import { theme, createThemedStyles } from '../theme';
 import { useTheme } from './ThemeProvider';
 import { useLanguage } from './LanguageProvider';
@@ -21,8 +21,8 @@ function hexToRgba(hex: string, alpha: number) {
 }
 
 interface BottomNavProps {
-  activeTab: 'tasks' | 'focus' | 'notes' | 'expenses' | 'profile';
-  onChangeTab: (tab: 'tasks' | 'focus' | 'notes' | 'expenses' | 'profile') => void;
+  activeTab: 'tasks' | 'focus' | 'notes' | 'flashcards' | 'expenses' | 'profile';
+  onChangeTab: (tab: 'tasks' | 'focus' | 'notes' | 'flashcards' | 'expenses' | 'profile') => void;
   scrollX: Animated.Value;
   onDragScroll?: (offsetX: number) => void;
 }
@@ -40,6 +40,7 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
     { id: 'tasks', label: t('tabTasks'), icon: ClipboardList },
     { id: 'focus', label: t('tabFocus'), icon: Timer },
     { id: 'notes', label: t('tabNotes'), icon: StickyNote },
+    { id: 'flashcards', label: t('flashcardTitle'), icon: Layers },
     { id: 'expenses', label: t('tabExpenses'), icon: Wallet },
   ] as const;
 

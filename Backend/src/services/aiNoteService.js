@@ -14,7 +14,8 @@ const callAI = async (prompt, maxRetries = 2) => {
   }
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const modelName = process.env.GEMINI_MODEL_NOTE || 'gemini-2.5-flash';
+  const model = genAI.getGenerativeModel({ model: modelName });
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {

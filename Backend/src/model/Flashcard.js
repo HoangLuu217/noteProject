@@ -12,9 +12,23 @@ const flashcardSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    options: {
+      type: [String],
+      default: [],
+    },
     answer: {
       type: String,
       required: true,
+    },
+    difficulty: {
+      type: String,
+      enum: ['EASY', 'HARD'],
+      default: 'EASY',
+    },
+    type: {
+      type: String,
+      enum: ['BASIC', 'MULTIPLE_CHOICE'],
+      default: 'BASIC',
     },
   },
   {

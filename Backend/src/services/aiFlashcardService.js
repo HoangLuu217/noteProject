@@ -14,7 +14,8 @@ const callAI = async (prompt, maxRetries = 2) => {
   }
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const modelName = process.env.GEMINI_MODEL_FLASHCARD || 'gemini-flash-latest';
+  const model = genAI.getGenerativeModel({ model: modelName });
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -36,18 +37,23 @@ const callAI = async (prompt, maxRetries = 2) => {
 // Các tính năng AI khác (Rewrite, Translate, Chat) sẽ được thành viên khác phát triển ở service riêng.
 
 const generateFlashcards = async (userId, data) => {
-  const { content, noteId } = data;
+  const { content, noteId, language } = data;
   if (!content) throw new CustomError('Content is required', 400);
+
+  const langInstruction = language === 'en' 
+    ? 'QUAN TRỌNG: Tất cả câu hỏi (question), đáp án (answer, options) và giải thích (explanation) PHẢI được viết bằng TIẾNG ANH (English).'
+    : 'Tất cả câu hỏi, đáp án, và giải thích trong mảng JSON phải được viết bằng TIẾNG VIỆT.';
 
   const prompt = `Bạn là một trợ lý tạo thẻ học. Hãy làm theo yêu cầu của người dùng để tạo ra thẻ ghi nhớ (flashcard).
   Nếu người dùng cung cấp một đoạn văn bản (Note), hãy trích xuất ý chính. Nếu người dùng đưa ra một câu lệnh (Ví dụ: "Tạo 1 câu hỏi có 3 đáp án và giải thích..."), hãy tuân thủ chính xác lệnh đó.
+  ${langInstruction}
   Kết quả trả về bắt buộc phải là MẢNG JSON hợp lệ. Mỗi phần tử là một object có cấu trúc:
   - "type": "MULTIPLE_CHOICE" hoặc "BASIC"
   - "question": Câu hỏi
   - "options": Mảng các đáp án (tuỳ ý theo lệnh của người dùng)
-  - "answer": Đáp án đúng
+  - "answer": Đáp án đúng (Bắt buộc phải trích xuất chính xác từ options. Nếu lệnh yêu cầu nhiều đáp án đúng, hãy trả về một MẢNG các chuỗi. Ngược lại, trả về một chuỗi)
   - "explanation": Giải thích tại sao đáp án đó đúng (tuỳ chọn)
-  - "difficulty": Độ khó của câu hỏi ("EASY", "MEDIUM", hoặc "HARD")
+  - "difficulty": Độ khó của câu hỏi ("EASY" hoặc "HARD")
   
   KHÔNG bọc JSON trong \`\`\`json. CHỈ in ra mảng JSON.
   Nội dung/Lệnh của người dùng: ${content}`;
@@ -77,19 +83,37 @@ const generateFlashcards = async (userId, data) => {
         if (options.length < 2) options.push('Đáp án sai 1', 'Đáp án sai 2');
         if (options.length > 6) options = options.slice(0, 6);
 
-        // 3. Ép đáp án đúng (answer) BẮT BUỘC phải nằm trong danh sách options
-        if (!options.includes(answer)) {
-          answer = options[0]; // Chữa cháy bằng cách lấy đáp án đầu tiên làm đáp án đúng
+        // 3. Xử lý trường hợp đáp án có thể là mảng (nhiều đáp án đúng) hoặc chuỗi
+        if (Array.isArray(answer)) {
+          // Lọc ra những đáp án thực sự có trong options
+          const validAnswers = answer.filter(a => options.includes(a));
+          if (validAnswers.length > 0) {
+            answer = validAnswers.join(' & ');
+          } else {
+            answer = options[0];
+          }
+        } else if (typeof answer === 'string') {
+          // Nếu là chuỗi, kiểm tra xem nó có nằm trong options không
+          // Nếu không nằm trọn vẹn trong options, có thể AI đã gộp nhiều đáp án (VD: "A và B")
+          // Chúng ta sẽ kiểm tra xem answer có chứa option nào không
+          const matchedOptions = options.filter(opt => answer.includes(opt));
+          if (matchedOptions.length > 0 && !options.includes(answer)) {
+             answer = matchedOptions.join(' & ');
+          } else if (!options.includes(answer)) {
+             answer = options[0]; // Chữa cháy
+          }
+        } else {
+          answer = options[0];
         }
       } else {
         // Nếu là thẻ BASIC thì vứt mảng options đi
         options = [];
       }
 
-      // Xử lý độ khó (mặc định là MEDIUM nếu AI trả về sai)
+      // Xử lý độ khó (mặc định là EASY nếu AI trả về sai)
       let difficulty = item.difficulty;
-      if (!['EASY', 'MEDIUM', 'HARD'].includes(difficulty)) {
-        difficulty = 'MEDIUM';
+      if (!['EASY', 'HARD'].includes(difficulty)) {
+        difficulty = 'EASY';
       }
 
       return { type, question, options, answer, explanation, difficulty };

@@ -14,14 +14,14 @@ class CustomError extends Error {
 // ========================
 
 const createDeck = async (userId, data) => {
-  const { title, description, nodeId } = data;
-  if (!title || !nodeId) {
-    throw new CustomError('Title and nodeId are required', 400);
+  const { title, description, noteId } = data;
+  if (!title) {
+    throw new CustomError('Title is required', 400);
   }
 
   const newDeck = await FlashcardDeck.create({
     userId,
-    nodeId,
+    noteId,
     title,
     description,
   });
@@ -79,7 +79,7 @@ const addFlashcardToDeck = async (userId, deckId, data) => {
      throw new CustomError('Deck not found', 404);
   }
 
-  const { question, answer } = data;
+  const { question, answer, difficulty, type, options } = data;
   if (!question || !answer) {
     throw new CustomError('Question and answer are required', 400);
   }
@@ -88,6 +88,9 @@ const addFlashcardToDeck = async (userId, deckId, data) => {
     deckId,
     question,
     answer,
+    difficulty: difficulty || 'EASY',
+    type: type || 'BASIC',
+    options: Array.isArray(options) ? options : [],
   });
 
   return flashcard;
