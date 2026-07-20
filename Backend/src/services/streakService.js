@@ -24,13 +24,12 @@ const updateStreak = async (userId, clientDateString) => {
 
   // Lấy ngày hiện tại gửi từ Mobile (nếu không có thì dùng giờ Server)
   const clientDate = clientDateString ? new Date(clientDateString) : new Date();
-  
+
   // Chuẩn hoá ngày để so sánh (bỏ qua Giờ, Phút, Giây)
   const today = normalizeDate(clientDate);
   const lastActive = normalizeDate(user.lastActiveDate);
 
   if (!lastActive) {
-    // User mới lần đầu tiên có hoạt động
     user.currentStreak = 1;
     user.highestStreak = 1;
     user.lastActiveDate = today;
@@ -56,12 +55,10 @@ const updateStreak = async (userId, clientDateString) => {
     await user.save();
     return { currentStreak: user.currentStreak, highestStreak: user.highestStreak, message: 'Giữ vững chuỗi điểm danh!' };
   }
-
-  // Đã bỏ lỡ từ 2 ngày trở lên -> Đứt chuỗi
   user.currentStreak = 1;
   user.lastActiveDate = today;
   await user.save();
-  
+
   return { currentStreak: user.currentStreak, highestStreak: user.highestStreak, message: 'Chuỗi bị đứt. Đã bắt đầu lại chuỗi mới.' };
 };
 

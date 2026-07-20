@@ -15,8 +15,11 @@ import { useTheme } from '../components/ThemeProvider';
 import { useLanguage } from '../components/LanguageProvider';
 import { useAuthStore } from '../stores/authStore';
 import { Flashcard, generateFlashcards, getFlashcardsByNoteId } from '../services/aiFlashcardClient';
-import { createDeck, addFlashcardToDeck } from '../services/flashcardClient';
+import { createDeck, addFlashcardToDeck, globalFlashcardsCache } from '../services/flashcardClient';
 import { FlashcardStudyScreen } from './FlashcardStudyScreen';
+
+// Memory cache for instant loading of AI generated flashcards per note
+const noteFlashcardsCache: Record<string, Flashcard[]> = {};
 
 interface FlashcardListScreenProps {
   noteId: string;
@@ -48,8 +51,15 @@ export function FlashcardListScreen({ noteId, noteContent, noteTitle, onClose }:
       const cleanContent = noteContent.replace(/<[^>]*>?/gm, '');
 
       if (!forceRegenerate) {
+        if (noteFlashcardsCache[noteId]) {
+          setFlashcards(noteFlashcardsCache[noteId]);
+          setIsLoading(false);
+          return;
+        }
+
         const cached = await getFlashcardsByNoteId(accessToken, noteId);
         if (cached && cached.length > 0) {
+          noteFlashcardsCache[noteId] = cached;
           setFlashcards(cached);
           setIsLoading(false);
           return;
@@ -58,6 +68,7 @@ export function FlashcardListScreen({ noteId, noteContent, noteTitle, onClose }:
 
       setLoadingState('generating');
       const generated = await generateFlashcards(accessToken, cleanContent, noteId, language);
+      noteFlashcardsCache[noteId] = generated;
       setFlashcards(generated);
     } catch (error) {
       console.error('Error fetching flashcards:', error);
@@ -75,13 +86,16 @@ export function FlashcardListScreen({ noteId, noteContent, noteTitle, onClose }:
     setIsSaving(true);
     try {
       // 1. Create a deck
-      const deckTitle = noteTitle ? `Flashcards from: ${noteTitle}` : 'Untitled Flashcard Deck';
+      const deckTitle = noteTitle ? noteTitle : (language === 'en' ? 'Untitled Flashcard Deck' : 'Bộ thẻ chưa đặt tên');
       const deck = await createDeck(accessToken, deckTitle, noteId);
       
-      // 2. Add all flashcards to the deck
+      // 2. Add all flashcards to the deck and populate cache
+      const savedCards = [];
       for (const card of flashcards) {
-        await addFlashcardToDeck(accessToken, deck._id, card);
+        const saved = await addFlashcardToDeck(accessToken, deck._id, card);
+        savedCards.push(saved);
       }
+      globalFlashcardsCache[deck._id] = savedCards;
       
       setIsSaved(true);
       Alert.alert(language === 'en' ? 'Success' : 'Thành công', language === 'en' ? 'Flashcard deck saved successfully!' : 'Đã lưu bộ thẻ thành công!');
@@ -111,7 +125,7 @@ export function FlashcardListScreen({ noteId, noteContent, noteTitle, onClose }:
           <X size={24} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.onSurface }]} numberOfLines={1}>
-          {t('flashcardTitle')}
+          {noteTitle || (language === 'en' ? 'AI Flashcards' : 'Thẻ học AI')}
         </Text>
         <TouchableOpacity
           onPress={() => fetchFlashcards(true)}
@@ -225,28 +239,9 @@ export function FlashcardListScreen({ noteId, noteContent, noteTitle, onClose }:
             <View style={{ height: 100 }} />
           </ScrollView>
 
-          {/* Save Deck Floating Button (Above Study Button) */}
-          {!isSaved && (
-            <TouchableOpacity
-              style={[
-                styles.iconButton,
-                styles.saveFab,
-                { backgroundColor: colors.secondaryContainer }
-              ]}
-              onPress={handleSaveDeck}
-              disabled={isSaving}
-              activeOpacity={0.8}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={colors.onSecondaryContainer} />
-              ) : (
-                <Save size={28} color={colors.onSecondaryContainer} />
-              )}
-            </TouchableOpacity>
-          )}
-
-          {/* Floating Action Button for Study Mode */}
-          <View style={styles.fabContainer}>
+          {/* Action Buttons Row */}
+          <View style={[styles.fabContainer, { flexDirection: 'row', gap: 16 }]}>
+            {/* Start Studying Button */}
             <TouchableOpacity
               style={[
                 styles.studyButton,
@@ -260,6 +255,25 @@ export function FlashcardListScreen({ noteId, noteContent, noteTitle, onClose }:
                 {t('flashcardStartStudy')}
               </Text>
             </TouchableOpacity>
+
+            {/* Save Deck Button */}
+            {!isSaved && (
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  { backgroundColor: colors.secondaryContainer }
+                ]}
+                onPress={handleSaveDeck}
+                disabled={isSaving}
+                activeOpacity={0.8}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={colors.onSecondaryContainer} />
+                ) : (
+                  <Save size={24} color={colors.onSecondaryContainer} />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </>
       )}

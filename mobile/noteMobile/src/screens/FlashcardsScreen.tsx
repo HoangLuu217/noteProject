@@ -9,15 +9,16 @@ import {
   Modal,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
-import { Plus, Trash2, Library, ChevronRight } from 'lucide-react-native';
+import { Plus, Trash2, Library, ChevronRight, Search } from 'lucide-react-native';
 import { useTheme } from '../components/ThemeProvider';
 import { useLanguage } from '../components/LanguageProvider';
 import { useAuthStore } from '../stores/authStore';
 import { FlashcardDeck, getDecks, createDeck, deleteDeck } from '../services/flashcardClient';
 import { FlashcardDeckDetailScreen } from './FlashcardDeckDetailScreen';
 
-export function FlashcardsScreen() {
+export function FlashcardsScreen({ isActive }: { isActive?: boolean }) {
   const { colors } = useTheme();
   const { t, language } = useLanguage();
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -25,6 +26,12 @@ export function FlashcardsScreen() {
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDeck, setSelectedDeck] = useState<FlashcardDeck | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredDecks = decks.filter(deck =>
+    searchQuery.trim() === '' ||
+    deck.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Modal Create
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -33,7 +40,7 @@ export function FlashcardsScreen() {
 
   const fetchDecks = async () => {
     if (!accessToken) return;
-    setIsLoading(true);
+    if (decks.length === 0) setIsLoading(true);
     try {
       const fetched = await getDecks(accessToken);
       setDecks(fetched || []);
@@ -45,8 +52,10 @@ export function FlashcardsScreen() {
   };
 
   useEffect(() => {
-    fetchDecks();
-  }, [accessToken, selectedDeck]); // Refetch when returning from detail screen
+    if (isActive !== false) {
+      fetchDecks();
+    }
+  }, [accessToken, selectedDeck, isActive]); // Refetch when returning from detail screen or becoming active
 
   const handleCreateDeck = async () => {
     if (!newDeckTitle.trim() || !accessToken) return;
@@ -90,35 +99,42 @@ export function FlashcardsScreen() {
 
   if (selectedDeck) {
     return (
-      <FlashcardDeckDetailScreen 
-        deck={selectedDeck} 
-        onClose={() => setSelectedDeck(null)} 
+      <FlashcardDeckDetailScreen
+        deck={selectedDeck}
+        onClose={() => setSelectedDeck(null)}
       />
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.onBackground }]}>
-          {t('flashcardTitle')}
-        </Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Search Bar */}
+        <View style={[styles.searchBarContainer, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant }]}>
+          <Search size={18} color={colors.outline} />
+          <TextInput
+            placeholder={language === 'en' ? 'Search decks...' : 'Tìm bộ thẻ...'}
+            placeholderTextColor={colors.outline}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={[styles.searchBarInput, { color: colors.onSurface }]}
+            underlineColorAndroid="transparent"
+          />
+        </View>
 
-      {isLoading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : decks.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Library size={64} color={colors.surfaceVariant} style={{ marginBottom: 16 }} />
-          <Text style={[styles.emptyText, { color: colors.onSurfaceVariant }]}>
-            {language === 'en' ? 'You have no flashcard decks yet.' : 'Bạn chưa có bộ thẻ nào.'}
-          </Text>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {decks.map((deck) => (
+        {isLoading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : filteredDecks.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <Library size={64} color={colors.surfaceVariant} style={{ marginBottom: 16 }} />
+            <Text style={[styles.emptyText, { color: colors.onSurfaceVariant }]}>
+              {searchQuery.trim() ? (language === 'en' ? 'No decks found.' : 'Không tìm thấy bộ thẻ nào.') : (language === 'en' ? 'You have no flashcard decks yet.' : 'Bạn chưa có bộ thẻ nào.')}
+            </Text>
+          </View>
+        ) : (
+          filteredDecks.map((deck) => (
             <TouchableOpacity
               key={deck._id}
               style={[
@@ -134,8 +150,8 @@ export function FlashcardsScreen() {
               <View style={styles.deckInfo}>
                 <Library size={24} color={colors.primary} style={{ marginRight: 16 }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.deckTitle, { color: colors.onSurface }]} numberOfLines={2}>
-                    {deck.title}
+                  <Text style={[styles.deckTitle, { color: colors.onSurface }]} numberOfLines={1}>
+                    {deck.title.replace('Flashcards from: ', '')}
                   </Text>
                   <Text style={[styles.deckDate, { color: colors.onSurfaceVariant }]}>
                     {new Date(deck.createdAt).toLocaleDateString()}
@@ -150,16 +166,16 @@ export function FlashcardsScreen() {
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
-          ))}
-          <View style={{ height: 120 }} />
-        </ScrollView>
-      )}
+          ))
+        )}
+        <View style={{ height: 120 }} />
+      </ScrollView>
 
       {/* FAB to Add New Deck */}
       <TouchableOpacity
         style={[
           styles.fab,
-          { 
+          {
             backgroundColor: colors.primaryContainer,
             shadowColor: colors.primary,
             borderBottomColor: colors.primary + '33'
@@ -183,7 +199,7 @@ export function FlashcardsScreen() {
             <Text style={[styles.modalTitle, { color: colors.onSurface }]}>
               {language === 'en' ? 'New Flashcard Deck' : 'Bộ thẻ mới'}
             </Text>
-            
+
             <TextInput
               style={[
                 styles.input,
@@ -244,10 +260,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   centerContainer: {
-    flex: 1,
+    paddingVertical: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
   },
   emptyText: {
     fontFamily: 'Quicksand-Medium',
@@ -256,8 +272,24 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 40,
     gap: 12,
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 4,
+    gap: 8,
+  },
+  searchBarInput: {
+    flex: 1,
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 15,
+    padding: 0,
   },
   deckCard: {
     padding: 16,

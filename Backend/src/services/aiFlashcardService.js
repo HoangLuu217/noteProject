@@ -1,5 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const AiHistory = require('../model/AiHistory');
+const FlashcardDeck = require('../model/FlashcardDeck');
+const Flashcard = require('../model/Flashcard');
 
 class CustomError extends Error {
   constructor(message, statusCode) {
@@ -27,22 +29,18 @@ const callAI = async (prompt, maxRetries = 2) => {
       if (attempt === maxRetries) {
         throw new CustomError('Lỗi kết nối với AI. Hệ thống đang quá tải, vui lòng thử lại sau!', 500);
       }
-
-      // Đợi 1.5s trước khi thử lại
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
   }
 };
-
-// Các tính năng AI khác (Rewrite, Translate, Chat) sẽ được thành viên khác phát triển ở service riêng.
-
 const generateFlashcards = async (userId, data) => {
   const { content, noteId, language } = data;
   if (!content) throw new CustomError('Content is required', 400);
 
-  const langInstruction = language === 'en' 
-    ? 'QUAN TRỌNG: Tất cả câu hỏi (question), đáp án (answer, options) và giải thích (explanation) PHẢI được viết bằng TIẾNG ANH (English).'
-    : 'Tất cả câu hỏi, đáp án, và giải thích trong mảng JSON phải được viết bằng TIẾNG VIỆT.';
+  const langInstruction = `QUAN TRỌNG VỀ NGÔN NGỮ:
+  1. TUYỆT ĐỐI bám sát ngôn ngữ của đoạn văn bản (Note) gốc.
+  2. KHÔNG tự động dịch thuật. Nếu người dùng đang học ngoại ngữ (ví dụ: tiếng Trung, Nhật, Anh...), BẮT BUỘC phải giữ nguyên từ vựng gốc ở câu hỏi hoặc đáp án để phục vụ việc học.
+  3. Nếu văn bản gốc bằng tiếng Việt, hãy tạo thẻ bằng tiếng Việt. Nếu bằng tiếng Anh, tạo bằng tiếng Anh. Nếu có nhiều ngôn ngữ, hãy giữ nguyên các ngôn ngữ đó.`;
 
   const prompt = `Bạn là một trợ lý tạo thẻ học. Hãy làm theo yêu cầu của người dùng để tạo ra thẻ ghi nhớ (flashcard).
   Nếu người dùng cung cấp một đoạn văn bản (Note), hãy trích xuất ý chính. Nếu người dùng đưa ra một câu lệnh (Ví dụ: "Tạo 1 câu hỏi có 3 đáp án và giải thích..."), hãy tuân thủ chính xác lệnh đó.
@@ -66,8 +64,6 @@ const generateFlashcards = async (userId, data) => {
   let flashcardsArray;
   try {
     const rawArray = JSON.parse(aiResponseStr);
-
-    // BƯỚC BẢO VỆ (Tầng AI Validation): Lọc dữ liệu để xoá bỏ mọi trường rác và đảm bảo logic
     flashcardsArray = rawArray.map(item => {
       const type = item.type === 'MULTIPLE_CHOICE' ? 'MULTIPLE_CHOICE' : 'BASIC';
       const question = item.question || 'Câu hỏi bị lỗi';
@@ -98,9 +94,9 @@ const generateFlashcards = async (userId, data) => {
           // Chúng ta sẽ kiểm tra xem answer có chứa option nào không
           const matchedOptions = options.filter(opt => answer.includes(opt));
           if (matchedOptions.length > 0 && !options.includes(answer)) {
-             answer = matchedOptions.join(' & ');
+            answer = matchedOptions.join(' & ');
           } else if (!options.includes(answer)) {
-             answer = options[0]; // Chữa cháy
+            answer = options[0];
           }
         } else {
           answer = options[0];
@@ -139,6 +135,18 @@ const getAiHistory = async (userId) => {
 };
 
 const getFlashcardsByNoteId = async (userId, noteId) => {
+  // 1. Kiểm tra xem người dùng đã "Save Deck" cho Note này chưa
+  const deck = await FlashcardDeck.findOne({ userId, noteId });
+
+  if (deck) {
+    // Nếu có Deck, ưu tiên lấy danh sách thẻ thật (đã được người dùng chỉnh sửa bên màn hình Review)
+    const realFlashcards = await Flashcard.find({ deckId: deck._id });
+    if (realFlashcards && realFlashcards.length > 0) {
+      return realFlashcards;
+    }
+  }
+
+  // 2. Nếu chưa tạo Deck hoặc Deck rỗng, thì lấy bản nháp gốc từ AI History
   const history = await AiHistory.findOne({
     userId,
     noteId,

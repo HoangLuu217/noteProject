@@ -22,7 +22,8 @@ import {
   getFlashcardsByDeck, 
   addFlashcardToDeck, 
   updateFlashcard, 
-  deleteFlashcard 
+  deleteFlashcard,
+  globalFlashcardsCache
 } from '../services/flashcardClient';
 import { Flashcard } from '../services/aiFlashcardClient';
 import { FlashcardStudyScreen } from './FlashcardStudyScreen';
@@ -56,9 +57,17 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
 
   const fetchCards = async () => {
     if (!accessToken) return;
-    setIsLoading(true);
+    
+    if (globalFlashcardsCache[deck._id]) {
+      setFlashcards(globalFlashcardsCache[deck._id]);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+
     try {
       const fetched = await getFlashcardsByDeck(accessToken, deck._id);
+      globalFlashcardsCache[deck._id] = fetched || [];
       setFlashcards(fetched || []);
     } catch (e) {
       console.error('Failed to load flashcards:', e);
@@ -112,11 +121,15 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
       if (editingCardId) {
         // Edit
         const updated = await updateFlashcard(accessToken, editingCardId, payload);
-        setFlashcards(flashcards.map(c => c._id === editingCardId ? updated : c));
+        const newCards = flashcards.map(c => c._id === editingCardId ? updated : c);
+        setFlashcards(newCards);
+        globalFlashcardsCache[deck._id] = newCards;
       } else {
         // Add
         const created = await addFlashcardToDeck(accessToken, deck._id, payload);
-        setFlashcards([created, ...flashcards]);
+        const newCards = [created, ...flashcards];
+        setFlashcards(newCards);
+        globalFlashcardsCache[deck._id] = newCards;
       }
       setIsModalOpen(false);
     } catch (e) {
@@ -140,7 +153,9 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
             if (!accessToken) return;
             try {
               await deleteFlashcard(accessToken, cardId);
-              setFlashcards(flashcards.filter(c => c._id !== cardId));
+              const newCards = flashcards.filter(c => c._id !== cardId);
+              setFlashcards(newCards);
+              globalFlashcardsCache[deck._id] = newCards;
             } catch (e) {
               console.error('Failed to delete card:', e);
             }
@@ -159,7 +174,7 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
           <ChevronLeft size={28} color={colors.onBackground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.onBackground }]} numberOfLines={1}>
-          {deck.title}
+          {deck.title.replace('Flashcards from: ', '')}
         </Text>
       </View>
 
@@ -440,7 +455,7 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
           {isStudyMode && (
             <FlashcardStudyScreen
               flashcards={flashcards}
-              noteTitle={deck.title}
+              noteTitle={deck.title.replace('Flashcards from: ', '')}
               onClose={() => setIsStudyMode(false)}
             />
           )}

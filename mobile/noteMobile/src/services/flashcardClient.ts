@@ -1,6 +1,9 @@
 import { apiRequest } from './apiClient';
 import { Flashcard } from './aiFlashcardClient';
 
+// Global memory cache for instant loading of decks
+export const globalFlashcardsCache: Record<string, (Flashcard & { _id: string })[]> = {};
+
 export interface FlashcardDeck {
   _id: string;
   userId: string;

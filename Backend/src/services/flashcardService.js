@@ -61,8 +61,6 @@ const deleteDeck = async (userId, deckId) => {
   if (!deck) {
     throw new CustomError('Deck not found', 404);
   }
-
-  // Xóa các flashcards thuộc deck này
   await Flashcard.deleteMany({ deckId });
 
   return deck;
@@ -76,7 +74,7 @@ const addFlashcardToDeck = async (userId, deckId, data) => {
   // Kiểm tra quyền sở hữu deck
   const deck = await getDeckById(userId, deckId);
   if (!deck) {
-     throw new CustomError('Deck not found', 404);
+    throw new CustomError('Deck not found', 404);
   }
 
   const { question, answer, difficulty, type, options } = data;
@@ -97,15 +95,12 @@ const addFlashcardToDeck = async (userId, deckId, data) => {
 };
 
 const getFlashcardsByDeck = async (userId, deckId) => {
-  // Kiểm tra quyền sở hữu deck trước
   await getDeckById(userId, deckId);
-
   const flashcards = await Flashcard.find({ deckId }).sort({ createdAt: -1 });
   return flashcards;
 };
 
 const updateFlashcard = async (userId, flashcardId, data) => {
-  // Tìm flashcard và xem có thuộc deck của user không
   const flashcard = await Flashcard.findById(flashcardId).populate('deckId');
   if (!flashcard || flashcard.deckId.userId.toString() !== userId.toString()) {
     throw new CustomError('Flashcard not found or unauthorized', 404);

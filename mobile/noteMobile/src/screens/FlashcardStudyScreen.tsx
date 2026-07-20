@@ -124,7 +124,7 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
 
           <View style={styles.titleContainer}>
             <Text style={[styles.headerTitle, { color: colors.onSurface }]} numberOfLines={1}>
-              {t('flashcardTitle')}
+              {noteTitle || t('flashcardTitle')}
             </Text>
             <Text style={[styles.headerSubtitle, { color: colors.onSurfaceVariant }]}>
               {t('flashcardProgress', { remembered: rememberedCount.toString(), total: totalCards.toString() })}

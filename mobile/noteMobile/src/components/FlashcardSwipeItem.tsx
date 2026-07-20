@@ -170,9 +170,6 @@ export function FlashcardSwipeItem({
             >
               <Text
                 style={[styles.textMain, { color: colors.onSurface, marginBottom: options && options.length > 0 ? 20 : 0 }]}
-                adjustsFontSizeToFit={true}
-                numberOfLines={5}
-                minimumFontScale={0.5}
               >
                 {question}
               </Text>
@@ -191,11 +188,11 @@ export function FlashcardSwipeItem({
                   ))}
                 </View>
               )}
+              <View style={styles.hintContainer}>
+                <Pointer size={28} color="#0B525B" style={{ marginBottom: 8 }} />
+                <Text style={[styles.hint, { color: '#0B525B' }]}>{t('flashcardTapToView')}</Text>
+              </View>
             </ScrollView>
-            <View style={styles.hintContainer}>
-              <Pointer size={28} color="#0B525B" style={{ marginBottom: 8 }} />
-              <Text style={[styles.hint, { color: '#0B525B' }]}>{t('flashcardTapToView')}</Text>
-            </View>
 
             <Animated.View style={[styles.stampContainer, styles.stampRight, { opacity: likeOpacity }]}>
               <Text style={[styles.stampText, { color: '#4cc9f0', borderColor: '#4cc9f0' }]}>{t('flashcardRemember')}</Text>
@@ -228,9 +225,6 @@ export function FlashcardSwipeItem({
             >
               <Text
                 style={[styles.textMain, { color: colors.onPrimaryContainer }]}
-                adjustsFontSizeToFit={true}
-                numberOfLines={10}
-                minimumFontScale={0.5}
               >
                 {answer}
               </Text>
