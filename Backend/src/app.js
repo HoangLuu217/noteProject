@@ -11,6 +11,7 @@ const aiFlashcardRoutes = require('./routes/aiFlashcardRoutes');
 const aiNoteRoutes = require('./routes/aiNoteRoutes');
 const streakRoutes = require('./routes/streakRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
+const flashcardRoutes = require('./routes/flashcardRoutes');
 const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
 const { sendSuccess } = require('./utils/response');
 
@@ -41,6 +42,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/ai-flashcards', aiFlashcardRoutes);
 app.use('/api/ai-notes', aiNoteRoutes);
 app.use('/api/streak', streakRoutes);
+app.use('/api/flashcards', flashcardRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

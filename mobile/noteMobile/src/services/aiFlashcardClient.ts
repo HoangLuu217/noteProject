@@ -6,18 +6,19 @@ export interface Flashcard {
   options: string[];
   answer: string;
   explanation: string;
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  difficulty?: 'EASY' | 'HARD';
 }
 
 export const generateFlashcards = async (
   accessToken: string,
   content: string,
-  noteId: string
+  noteId: string,
+  language?: string
 ): Promise<Flashcard[]> => {
   const response = await apiRequest<{ flashcards: Flashcard[] }>('/ai-flashcards/generate-flashcards', {
     method: 'POST',
     token: accessToken,
-    body: { content, noteId },
+    body: { content, noteId, language },
   });
   return response.flashcards;
 };

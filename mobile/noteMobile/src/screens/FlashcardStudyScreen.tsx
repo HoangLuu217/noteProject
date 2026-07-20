@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, RotateCcw, Settings, Flame, Star, ThumbsDown, Dumbbell, ThumbsUp, Layers } from 'lucide-react-native';
 import { FlashcardSwipeItem } from '../components/FlashcardSwipeItem';
 import { useTheme } from '../components/ThemeProvider';
@@ -8,6 +8,7 @@ import { useLanguage } from '../components/LanguageProvider';
 import { Flashcard } from '../services/aiFlashcardClient';
 import { useAuthStore } from '../stores/authStore';
 import { SettingsModal } from '../components/SettingsModal';
+import { checkInStreak } from '../services/streakService';
 
 type TabType = 'ALL' | 'EASY' | 'HARD' | 'FORGOTTEN';
 type CardRecord = Flashcard & { originalIndex: number, status: 'PENDING' | 'DONE' | 'FORGOTTEN' };
@@ -23,6 +24,7 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
   const { t } = useLanguage();
   const streak = useAuthStore((state) => state.streak);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const [cards, setCards] = useState<CardRecord[]>(
     flashcards.map((c, i) => ({ ...c, originalIndex: i, status: 'PENDING' }))
@@ -37,7 +39,7 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
       if (c.status !== 'PENDING') return false;
       if (activeTab === 'ALL') return true;
       if (activeTab === 'HARD') return c.difficulty === 'HARD';
-      if (activeTab === 'EASY') return c.difficulty === 'EASY' || c.difficulty === 'MEDIUM';
+      if (activeTab === 'EASY') return c.difficulty === 'EASY';
       return false;
     });
   }, [cards, activeTab]);
@@ -69,9 +71,22 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
   // Đếm tổng số thẻ PENDING hoặc FORGOTTEN (chưa DONE)
   const remainingCards = cards.filter(c => c.status !== 'DONE').length;
 
+  React.useEffect(() => {
+    if (remainingCards === 0) {
+      const accessToken = useAuthStore.getState().accessToken;
+      if (accessToken) {
+        checkInStreak(accessToken)
+          .then(res => {
+            useAuthStore.getState().setStreak(res.currentStreak);
+          })
+          .catch(err => console.error('Failed to auto check-in:', err));
+      }
+    }
+  }, [remainingCards]);
+
   if (remainingCards === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={styles.topBar}>
           <TouchableOpacity onPress={onClose} style={[styles.iconButton]}>
             <X size={24} color={colors.onSurface} />
@@ -90,7 +105,7 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
             <Text style={[styles.restartText, { color: colors.onPrimaryContainer }]}>{t('flashcardRestart')}</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -98,7 +113,7 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
   const progress = rememberedCount / totalCards;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* HEADER SECTION */}
       <View style={styles.headerContainer}>
         {/* Top Row: Close | Title | Settings */}
@@ -109,7 +124,7 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
 
           <View style={styles.titleContainer}>
             <Text style={[styles.headerTitle, { color: colors.onSurface }]} numberOfLines={1}>
-              {noteTitle ? noteTitle : t('flashcardTitle')}
+              {noteTitle || t('flashcardTitle')}
             </Text>
             <Text style={[styles.headerSubtitle, { color: colors.onSurfaceVariant }]}>
               {t('flashcardProgress', { remembered: rememberedCount.toString(), total: totalCards.toString() })}
@@ -163,6 +178,7 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
               <FlashcardSwipeItem
                 key={`${card.question}-${card.originalIndex}`}
                 question={card.question}
+                options={card.options}
                 answer={card.answer}
                 colors={colors}
                 onSwipeLeft={() => handleSwipeLeft(card.originalIndex)}
@@ -213,7 +229,7 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
         onClose={() => setIsSettingsOpen(false)}
         type="AuthSettings"
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -240,7 +256,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   titleContainer: {
+    flex: 1,
     alignItems: 'center',
+    marginHorizontal: 12,
   },
   headerTitle: {
     fontFamily: 'Quicksand-Bold',

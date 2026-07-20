@@ -11,10 +11,10 @@ Backend/.env
 Backend/.env.local
 Backend/.env.development
 Backend/.env.production
-mobile/NoteApp/.env
-mobile/NoteApp/.env.local
-mobile/NoteApp/.env.development
-mobile/NoteApp/.env.production
+mobile/noteMobile/.env
+mobile/noteMobile/.env.local
+mobile/noteMobile/.env.development
+mobile/noteMobile/.env.production
 Backend/.env.example
 
 # Firebase / secrets

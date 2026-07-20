@@ -8,7 +8,8 @@ const checkIn = async (req, res, next) => {
     
     return sendSuccess(res, result.message, {
       currentStreak: result.currentStreak,
-      highestStreak: result.highestStreak
+      highestStreak: result.highestStreak,
+      message: result.message
     });
   } catch (error) {
     if (error.statusCode) {

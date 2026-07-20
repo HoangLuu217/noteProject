@@ -7,10 +7,10 @@ const flashcardDeckSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    nodeId: {
+    noteId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Note',
-      required: true,
+      required: false,
     },
     title: {
       type: String,

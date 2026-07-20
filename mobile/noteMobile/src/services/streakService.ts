@@ -24,7 +24,10 @@ export const checkInStreak = async (accessToken: string, clientDate?: string): P
     method: 'POST',
     token: accessToken,
     body: {
-      clientDate: clientDate || new Date().toISOString(),
+      clientDate: clientDate || (() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      })(),
     },
   });
 };

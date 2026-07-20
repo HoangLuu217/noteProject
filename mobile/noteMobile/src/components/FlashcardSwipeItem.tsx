@@ -7,14 +7,17 @@ import {
   PanResponder,
   Dimensions,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import { Pointer } from 'lucide-react-native';
+import { useLanguage } from './LanguageProvider';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 120;
 
 export interface FlashcardSwipeItemProps {
   question: string;
+  options?: string[];
   answer: string;
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
@@ -23,11 +26,13 @@ export interface FlashcardSwipeItemProps {
 
 export function FlashcardSwipeItem({
   question,
+  options = [],
   answer,
   onSwipeLeft,
   onSwipeRight,
   colors,
 }: FlashcardSwipeItemProps) {
+  const { t } = useLanguage();
   const [isFlipped, setIsFlipped] = useState(false);
   const position = useRef(new Animated.ValueXY()).current;
   const flipAnim = useRef(new Animated.Value(0)).current;
@@ -155,28 +160,45 @@ export function FlashcardSwipeItem({
             ]}
           >
             <View style={styles.tagContainer}>
-              <Text style={styles.tagText}>CÂU HỎI</Text>
+              <Text style={styles.tagText}>{t('flashcardQuestion')}</Text>
             </View>
-            <View style={styles.centerContent}>
+            <ScrollView 
+              style={styles.centerContent} 
+              contentContainerStyle={styles.centerContentContainer}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true}
+            >
               <Text
-                style={[styles.textMain, { color: colors.onSurface }]}
-                adjustsFontSizeToFit={true}
-                numberOfLines={10}
-                minimumFontScale={0.5}
+                style={[styles.textMain, { color: colors.onSurface, marginBottom: options && options.length > 0 ? 20 : 0 }]}
               >
                 {question}
               </Text>
-            </View>
-            <View style={styles.hintContainer}>
-              <Pointer size={28} color="#0B525B" style={{ marginBottom: 8 }} />
-              <Text style={[styles.hint, { color: '#0B525B' }]}>Chạm để xem đáp án</Text>
-            </View>
+              
+              {options && options.length > 0 && (
+                <View style={styles.optionsContainer}>
+                  {options.map((opt, idx) => (
+                    <View key={idx} style={[styles.optionItem, { backgroundColor: colors.surface }]}>
+                      <Text style={[styles.optionLetter, { color: colors.primary }]}>
+                        {String.fromCharCode(65 + idx)}
+                      </Text>
+                      <Text style={[styles.optionText, { color: colors.onSurface }]} numberOfLines={2}>
+                        {opt}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              <View style={styles.hintContainer}>
+                <Pointer size={28} color="#0B525B" style={{ marginBottom: 8 }} />
+                <Text style={[styles.hint, { color: '#0B525B' }]}>{t('flashcardTapToView')}</Text>
+              </View>
+            </ScrollView>
 
             <Animated.View style={[styles.stampContainer, styles.stampRight, { opacity: likeOpacity }]}>
-              <Text style={[styles.stampText, { color: '#4cc9f0', borderColor: '#4cc9f0' }]}>NHỚ</Text>
+              <Text style={[styles.stampText, { color: '#4cc9f0', borderColor: '#4cc9f0' }]}>{t('flashcardRemember')}</Text>
             </Animated.View>
             <Animated.View style={[styles.stampContainer, styles.stampLeft, { opacity: nopeOpacity }]}>
-              <Text style={[styles.stampText, { color: '#ffb4ab', borderColor: '#ffb4ab' }]}>QUÊN</Text>
+              <Text style={[styles.stampText, { color: '#ffb4ab', borderColor: '#ffb4ab' }]}>{t('flashcardForgot')}</Text>
             </Animated.View>
           </Animated.View>
 
@@ -193,24 +215,26 @@ export function FlashcardSwipeItem({
             ]}
           >
             <View style={[styles.tagContainer, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
-              <Text style={[styles.tagText, { color: colors.onPrimaryContainer }]}>ĐÁP ÁN</Text>
+              <Text style={[styles.tagText, { color: colors.onPrimaryContainer }]}>{t('flashcardAnswer')}</Text>
             </View>
-            <View style={styles.centerContent}>
+            <ScrollView 
+              style={styles.centerContent} 
+              contentContainerStyle={styles.centerContentContainer}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true}
+            >
               <Text
                 style={[styles.textMain, { color: colors.onPrimaryContainer }]}
-                adjustsFontSizeToFit={true}
-                numberOfLines={10}
-                minimumFontScale={0.5}
               >
                 {answer}
               </Text>
-            </View>
+            </ScrollView>
 
             <Animated.View style={[styles.stampContainer, styles.stampRight, { opacity: likeOpacity }]}>
-              <Text style={[styles.stampText, { color: '#4cc9f0', borderColor: '#4cc9f0' }]}>NHỚ</Text>
+              <Text style={[styles.stampText, { color: '#4cc9f0', borderColor: '#4cc9f0' }]}>{t('flashcardRemember')}</Text>
             </Animated.View>
             <Animated.View style={[styles.stampContainer, styles.stampLeft, { opacity: nopeOpacity }]}>
-              <Text style={[styles.stampText, { color: '#ffb4ab', borderColor: '#ffb4ab' }]}>QUÊN</Text>
+              <Text style={[styles.stampText, { color: '#ffb4ab', borderColor: '#ffb4ab' }]}>{t('flashcardForgot')}</Text>
             </Animated.View>
           </Animated.View>
         </View>
@@ -256,7 +280,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 10,
   },
   tagText: {
     fontFamily: 'Quicksand-Bold',
@@ -265,16 +292,45 @@ const styles = StyleSheet.create({
   },
   centerContent: {
     flex: 1,
+    width: '100%',
+    marginTop: 60,
+    marginBottom: 20,
+  },
+  centerContentContainer: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    width: '100%',
     paddingHorizontal: 10,
   },
   textMain: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 32,
+    fontSize: 28,
     textAlign: 'center',
-    lineHeight: 40,
+    lineHeight: 36,
+  },
+  optionsContainer: {
+    width: '100%',
+    marginTop: 10,
+    gap: 8,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  optionLetter: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 16,
+    width: 24,
+    marginRight: 8,
+  },
+  optionText: {
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 14,
+    flex: 1,
   },
   hintContainer: {
     alignItems: 'center',

@@ -14,14 +14,14 @@ class CustomError extends Error {
 // ========================
 
 const createDeck = async (userId, data) => {
-  const { title, description, nodeId } = data;
-  if (!title || !nodeId) {
-    throw new CustomError('Title and nodeId are required', 400);
+  const { title, description, noteId } = data;
+  if (!title) {
+    throw new CustomError('Title is required', 400);
   }
 
   const newDeck = await FlashcardDeck.create({
     userId,
-    nodeId,
+    noteId,
     title,
     description,
   });
@@ -61,8 +61,6 @@ const deleteDeck = async (userId, deckId) => {
   if (!deck) {
     throw new CustomError('Deck not found', 404);
   }
-
-  // Xóa các flashcards thuộc deck này
   await Flashcard.deleteMany({ deckId });
 
   return deck;
@@ -76,10 +74,10 @@ const addFlashcardToDeck = async (userId, deckId, data) => {
   // Kiểm tra quyền sở hữu deck
   const deck = await getDeckById(userId, deckId);
   if (!deck) {
-     throw new CustomError('Deck not found', 404);
+    throw new CustomError('Deck not found', 404);
   }
 
-  const { question, answer } = data;
+  const { question, answer, difficulty, type, options } = data;
   if (!question || !answer) {
     throw new CustomError('Question and answer are required', 400);
   }
@@ -88,24 +86,28 @@ const addFlashcardToDeck = async (userId, deckId, data) => {
     deckId,
     question,
     answer,
+    difficulty: ['EASY', 'HARD'].includes(difficulty) ? difficulty : 'EASY',
+    type: type || 'BASIC',
+    options: Array.isArray(options) ? options : [],
   });
 
   return flashcard;
 };
 
 const getFlashcardsByDeck = async (userId, deckId) => {
-  // Kiểm tra quyền sở hữu deck trước
   await getDeckById(userId, deckId);
-
   const flashcards = await Flashcard.find({ deckId }).sort({ createdAt: -1 });
   return flashcards;
 };
 
 const updateFlashcard = async (userId, flashcardId, data) => {
-  // Tìm flashcard và xem có thuộc deck của user không
   const flashcard = await Flashcard.findById(flashcardId).populate('deckId');
   if (!flashcard || flashcard.deckId.userId.toString() !== userId.toString()) {
     throw new CustomError('Flashcard not found or unauthorized', 404);
+  }
+
+  if (data.difficulty && !['EASY', 'HARD'].includes(data.difficulty)) {
+    data.difficulty = 'EASY';
   }
 
   const updatedFlashcard = await Flashcard.findByIdAndUpdate(

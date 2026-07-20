@@ -26,6 +26,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { NotesScreen } from './src/screens/NotesScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
 import { ExpensesScreen } from './src/screens/ExpensesScreen';
+import { FlashcardsScreen } from './src/screens/FlashcardsScreen';
 import { ThemeProvider, useTheme } from './src/components/ThemeProvider';
 import { Task } from './src/types';
 import { useAuthStore } from './src/stores/authStore';
@@ -130,7 +131,7 @@ const INITIAL_TASKS: Task[] = [
 ];
 
 function MainApp() {
-  const [activeTab, setActiveTab] = useState<'tasks' | 'focus' | 'notes' | 'expenses' | 'profile'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'focus' | 'notes' | 'flashcards' | 'expenses' | 'profile'>('tasks');
   const [swipeEnabled, setSwipeEnabled] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
   const { colors, isDark } = useTheme();
@@ -275,20 +276,20 @@ function MainApp() {
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
-      const index = ['tasks', 'focus', 'notes', 'expenses', 'profile'].indexOf(activeTab);
+      const index = ['tasks', 'focus', 'notes', 'flashcards', 'expenses', 'profile'].indexOf(activeTab);
       scrollX.setValue(index * screenWidth);
       return;
     }
     if (lastWidth.current !== screenWidth) {
-      const index = ['tasks', 'focus', 'notes', 'expenses', 'profile'].indexOf(activeTab);
+      const index = ['tasks', 'focus', 'notes', 'flashcards', 'expenses', 'profile'].indexOf(activeTab);
       scrollX.setValue(index * screenWidth);
       lastWidth.current = screenWidth;
     }
   }, [screenWidth, activeTab]);
 
-  const handleTabChange = (tab: 'tasks' | 'focus' | 'notes' | 'expenses' | 'profile') => {
+  const handleTabChange = (tab: 'tasks' | 'focus' | 'notes' | 'flashcards' | 'expenses' | 'profile') => {
     setActiveTab(tab);
-    const index = ['tasks', 'focus', 'notes', 'expenses', 'profile'].indexOf(tab);
+    const index = ['tasks', 'focus', 'notes', 'flashcards', 'expenses', 'profile'].indexOf(tab);
     Animated.spring(scrollX, {
       toValue: index * screenWidth,
       useNativeDriver: false,
@@ -314,6 +315,7 @@ function MainApp() {
         <View style={[styles.page, { display: activeTab === 'tasks' ? 'flex' : 'none' }]}><TasksScreen tasks={tasks} setTasks={setTasks} setSwipeEnabled={setSwipeEnabled} /></View>
         <View style={[styles.page, { display: activeTab === 'focus' ? 'flex' : 'none' }]}><FocusScreen /></View>
         <View style={[styles.page, { display: activeTab === 'notes' ? 'flex' : 'none' }]}><NotesScreen avatarUrl={avatarUrl} /></View>
+        <View style={[styles.page, { display: activeTab === 'flashcards' ? 'flex' : 'none' }]}><FlashcardsScreen isActive={activeTab === 'flashcards'} /></View>
         <View style={[styles.page, { display: activeTab === 'expenses' ? 'flex' : 'none' }]}><ExpensesScreen /></View>
         <View style={[styles.page, { display: activeTab === 'profile' ? 'flex' : 'none' }]}><ProfileScreen avatarUrl={avatarUrl} onChangeAvatar={handleUpdateAvatar} tasks={tasks} profileName={profileName} onChangeName={handleUpdateName} /></View>
       </View>

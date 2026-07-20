@@ -14,6 +14,7 @@ import {
   resendRegisterOtp as sendResendRegisterOtp,
   updateUserProfile,
 } from '../services/authService';
+import { getStreakStatus } from '../services/streakService';
 import { LoginResponse, PendingRegistration, User } from '../types/auth';
 import { ApiError } from '../types/api';
 
@@ -168,6 +169,13 @@ export const useAuthStore = create<AuthState>()(
         try {
           const user = await fetchProfile(accessToken);
           set({ user });
+          // Fetch streak status
+          try {
+            const streakData = await getStreakStatus(accessToken);
+            set({ streak: streakData.currentStreak });
+          } catch (e) {
+            console.error('Failed to load streak status:', e);
+          }
         } catch (error) {
           const err = error as any;
           if (err && err.statusCode === 401) {
