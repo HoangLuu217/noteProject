@@ -55,6 +55,9 @@ const persistTokenPair = async (user, tokenPair) => {
   user.refreshToken = tokenPair.refreshToken;
   user.refreshTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   user.lastLoginAt = new Date();
+  console.log("\n==================== CHUỖI TOKEN CỦA BẠN ĐỂ TEST POSTMAN ====================");
+  console.log(tokenPair.accessToken);
+  console.log("==============================================================================\n");
   await user.save();
 };
 

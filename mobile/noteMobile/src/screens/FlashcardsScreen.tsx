@@ -157,11 +157,18 @@ export function FlashcardsScreen() {
 
       {/* FAB to Add New Deck */}
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primaryContainer }]}
+        style={[
+          styles.fab,
+          { 
+            backgroundColor: colors.primaryContainer,
+            shadowColor: colors.primary,
+            borderBottomColor: colors.primary + '33'
+          }
+        ]}
         onPress={() => setIsCreateModalOpen(true)}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
-        <Plus size={24} color={colors.onPrimaryContainer} />
+        <Plus size={28} color={colors.primary} strokeWidth={3} />
       </TouchableOpacity>
 
       {/* Create Modal */}
@@ -277,16 +284,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 120,
     right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 99,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    borderBottomWidth: 5,
   },
   modalOverlay: {
     flex: 1,

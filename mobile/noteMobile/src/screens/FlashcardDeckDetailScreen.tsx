@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Plus, Trash2, Zap, Edit2, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useTheme } from '../components/ThemeProvider';
 import { useLanguage } from '../components/LanguageProvider';
@@ -36,8 +36,8 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
   const { colors } = useTheme();
   const { t, language } = useLanguage();
   const accessToken = useAuthStore((state) => state.accessToken);
-
   const [flashcards, setFlashcards] = useState<(Flashcard & { _id: string })[]>([]);
+  const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(true);
   const [isStudyMode, setIsStudyMode] = useState(false);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
@@ -271,11 +271,18 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: colors.secondaryContainer }]}
+          style={[
+            styles.addButton, 
+            { 
+              backgroundColor: colors.primaryContainer,
+              shadowColor: colors.primary,
+              borderBottomColor: colors.primary + '33'
+            }
+          ]}
           onPress={openAddModal}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
-          <Plus size={28} color={colors.onSecondaryContainer} />
+          <Plus size={28} color={colors.primary} strokeWidth={3} />
         </TouchableOpacity>
       </View>
 
@@ -291,7 +298,7 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1, backgroundColor: colors.surface }}
         >
-          <SafeAreaView style={{ flex: 1 }}>
+          <View style={{ flex: 1, paddingTop: insets.top }}>
             <View style={[styles.header, { paddingBottom: 10, paddingTop: 16 }]}>
               <TouchableOpacity onPress={() => setIsModalOpen(false)} style={styles.backButton}>
                 <ChevronLeft size={28} color={colors.onSurface} />
@@ -303,7 +310,7 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
               </Text>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 16, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 16, paddingBottom: 60, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
 
             <View style={styles.typeToggleContainer}>
               <TouchableOpacity
@@ -392,7 +399,7 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
               ))}
             </View>
 
-            <View style={[styles.modalActions, { marginTop: 10 }]}>
+            <View style={[styles.modalActions, { marginTop: 'auto' }]}>
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: colors.surfaceVariant }]}
                 onPress={() => setIsModalOpen(false)}
@@ -416,7 +423,7 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
               </TouchableOpacity>
             </View>
           </ScrollView>
-          </SafeAreaView>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -565,11 +572,14 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 99,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    borderBottomWidth: 5,
   },
   modalOverlay: {
     flex: 1,
@@ -639,7 +649,7 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     gap: 12,
   },
   modalButton: {

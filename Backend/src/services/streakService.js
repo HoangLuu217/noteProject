@@ -14,7 +14,7 @@ class CustomError extends Error {
 const normalizeDate = (date) => {
   if (!date) return null;
   const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
+  d.setUTCHours(0, 0, 0, 0);
   return d;
 };
 
@@ -39,7 +39,7 @@ const updateStreak = async (userId, clientDateString) => {
   }
 
   const timeDiff = today.getTime() - lastActive.getTime();
-  const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24)); // Số ngày chênh lệch
+  const dayDiff = Math.round(timeDiff / (1000 * 3600 * 24)); // Số ngày chênh lệch
 
   if (dayDiff === 0) {
     // Đã điểm danh/hoạt động trong ngày hôm nay rồi, không làm gì cả

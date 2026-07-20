@@ -88,7 +88,7 @@ const addFlashcardToDeck = async (userId, deckId, data) => {
     deckId,
     question,
     answer,
-    difficulty: difficulty || 'EASY',
+    difficulty: ['EASY', 'HARD'].includes(difficulty) ? difficulty : 'EASY',
     type: type || 'BASIC',
     options: Array.isArray(options) ? options : [],
   });
@@ -109,6 +109,10 @@ const updateFlashcard = async (userId, flashcardId, data) => {
   const flashcard = await Flashcard.findById(flashcardId).populate('deckId');
   if (!flashcard || flashcard.deckId.userId.toString() !== userId.toString()) {
     throw new CustomError('Flashcard not found or unauthorized', 404);
+  }
+
+  if (data.difficulty && !['EASY', 'HARD'].includes(data.difficulty)) {
+    data.difficulty = 'EASY';
   }
 
   const updatedFlashcard = await Flashcard.findByIdAndUpdate(

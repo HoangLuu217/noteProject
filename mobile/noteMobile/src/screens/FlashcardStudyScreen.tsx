@@ -8,6 +8,7 @@ import { useLanguage } from '../components/LanguageProvider';
 import { Flashcard } from '../services/aiFlashcardClient';
 import { useAuthStore } from '../stores/authStore';
 import { SettingsModal } from '../components/SettingsModal';
+import { checkInStreak } from '../services/streakService';
 
 type TabType = 'ALL' | 'EASY' | 'HARD' | 'FORGOTTEN';
 type CardRecord = Flashcard & { originalIndex: number, status: 'PENDING' | 'DONE' | 'FORGOTTEN' };
@@ -69,6 +70,19 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
 
   // Đếm tổng số thẻ PENDING hoặc FORGOTTEN (chưa DONE)
   const remainingCards = cards.filter(c => c.status !== 'DONE').length;
+
+  React.useEffect(() => {
+    if (remainingCards === 0) {
+      const accessToken = useAuthStore.getState().accessToken;
+      if (accessToken) {
+        checkInStreak(accessToken)
+          .then(res => {
+            useAuthStore.getState().setStreak(res.currentStreak);
+          })
+          .catch(err => console.error('Failed to auto check-in:', err));
+      }
+    }
+  }, [remainingCards]);
 
   if (remainingCards === 0) {
     return (
