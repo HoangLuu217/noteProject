@@ -78,8 +78,8 @@ export function BottomNav({ activeTab, onChangeTab, scrollX, onDragScroll }: Bot
   const indicatorLeft = Animated.subtract(indicatorCenter, Animated.divide(indicatorWidth, 2));
 
   const indicatorOpacity = scrollX.interpolate({
-    inputRange: [0, 1 * SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH, 4 * SCREEN_WIDTH],
-    outputRange: [1, 1, 1, 1, 0],
+    inputRange: [0, 1 * SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH, 4 * SCREEN_WIDTH, 5 * SCREEN_WIDTH],
+    outputRange: [1, 1, 1, 1, 1, 0],
     extrapolate: 'clamp',
   });
 
