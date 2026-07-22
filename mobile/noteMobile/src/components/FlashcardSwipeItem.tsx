@@ -8,6 +8,8 @@ import {
   Dimensions,
   Pressable,
   ScrollView,
+  TouchableWithoutFeedback,
+  TouchableOpacity,
 } from 'react-native';
 import { Pointer } from 'lucide-react-native';
 import { useLanguage } from './LanguageProvider';
@@ -22,6 +24,7 @@ export interface FlashcardSwipeItemProps {
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
   colors: any;
+  stackedIndex?: number;
 }
 
 export function FlashcardSwipeItem({
@@ -31,21 +34,25 @@ export function FlashcardSwipeItem({
   onSwipeLeft,
   onSwipeRight,
   colors,
+  stackedIndex = 0,
 }: FlashcardSwipeItemProps) {
   const { t } = useLanguage();
   const [isFlipped, setIsFlipped] = useState(false);
   const position = useRef(new Animated.ValueXY()).current;
   const flipAnim = useRef(new Animated.Value(0)).current;
 
+  // Lưu vị trí chạm tay để phân biệt Tap (lật) và Scroll (cuộn)
+  const touchY = useRef(0);
+  const touchX = useRef(0);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Chỉ bắt đầu vuốt khi người dùng kéo tay quá 5px (tránh lỗi vuốt nhầm khi đang bấm chạm)
-        return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
+        return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
       },
       onPanResponderMove: (_, gestureState) => {
-        position.setValue({ x: gestureState.dx, y: gestureState.dy });
+        position.setValue({ x: gestureState.dx, y: 0 });
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dx > SWIPE_THRESHOLD) {
@@ -134,7 +141,6 @@ export function FlashcardSwipeItem({
 
   return (
     <Animated.View
-      {...panResponder.panHandlers}
       style={[
         styles.cardContainer,
         {
@@ -142,11 +148,15 @@ export function FlashcardSwipeItem({
             { translateX: position.x },
             { translateY: position.y },
             { rotate: rotate },
+            { scale: stackedIndex === 1 ? 0.95 : stackedIndex === 2 ? 0.9 : 1 },
+            { translateY: stackedIndex === 1 ? 15 : stackedIndex === 2 ? 30 : 0 }
           ],
+          zIndex: 3 - stackedIndex, // Đảm bảo thẻ trên cùng đè lên thẻ dưới
         },
       ]}
+      {...panResponder.panHandlers}
     >
-      <Pressable onPress={handleFlip} style={styles.pressable}>
+      <View style={styles.pressable}>
         <View style={styles.contentWrapper}>
           {/* FRONT (QUESTION) */}
           <Animated.View
@@ -159,38 +169,48 @@ export function FlashcardSwipeItem({
               },
             ]}
           >
-            <View style={styles.tagContainer}>
+            <Pressable style={styles.tagContainer} onPress={handleFlip}>
               <Text style={styles.tagText}>{t('flashcardQuestion')}</Text>
-            </View>
-            <ScrollView 
-              style={styles.centerContent} 
+            </Pressable>
+            <ScrollView
+              style={styles.centerContent}
               contentContainerStyle={styles.centerContentContainer}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
             >
-              <Text
-                style={[styles.textMain, { color: colors.onSurface, marginBottom: options && options.length > 0 ? 20 : 0 }]}
-              >
-                {question}
-              </Text>
-              
-              {options && options.length > 0 && (
-                <View style={styles.optionsContainer}>
-                  {options.map((opt, idx) => (
-                    <View key={idx} style={[styles.optionItem, { backgroundColor: colors.surface }]}>
-                      <Text style={[styles.optionLetter, { color: colors.primary }]}>
-                        {String.fromCharCode(65 + idx)}
-                      </Text>
-                      <Text style={[styles.optionText, { color: colors.onSurface }]} numberOfLines={2}>
-                        {opt}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-              <View style={styles.hintContainer}>
-                <Pointer size={28} color="#0B525B" style={{ marginBottom: 8 }} />
-                <Text style={[styles.hint, { color: '#0B525B' }]}>{t('flashcardTapToView')}</Text>
+              <View style={{ width: '100%', alignItems: 'center', paddingBottom: 20 }}>
+                <Text
+                  style={[
+                    styles.textMain,
+                    { 
+                      color: colors.onSurface, 
+                      marginBottom: options && options.length > 0 ? 20 : 0,
+                      fontSize: question.length > 100 ? 20 : (question.length > 50 ? 24 : 28),
+                      lineHeight: question.length > 100 ? 28 : (question.length > 50 ? 32 : 36)
+                    }
+                  ]}
+                >
+                  {question}
+                </Text>
+
+                {options && options.length > 0 && (
+                  <View style={styles.optionsContainer}>
+                    {options.map((opt, idx) => (
+                      <View key={idx} style={[styles.optionItem, { backgroundColor: colors.surface }]}>
+                        <Text style={[styles.optionLetter, { color: colors.primary }]}>
+                          {String.fromCharCode(65 + idx)}
+                        </Text>
+                        <Text style={[styles.optionText, { color: colors.onSurface }]} numberOfLines={2}>
+                          {opt}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                <TouchableOpacity style={styles.hintContainer} onPress={handleFlip}>
+                  <Pointer size={28} color="#0B525B" style={{ marginBottom: 8 }} />
+                  <Text style={[styles.hint, { color: '#0B525B' }]}>{t('flashcardTapToView')}</Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
 
@@ -213,22 +233,35 @@ export function FlashcardSwipeItem({
                 transform: [{ rotateX: rotateXBack }],
               },
             ]}
+            pointerEvents={isFlipped ? 'auto' : 'none'}
           >
-            <View style={[styles.tagContainer, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+            <TouchableOpacity style={[styles.tagContainer, { backgroundColor: 'rgba(255,255,255,0.3)' }]} onPress={handleFlip}>
               <Text style={[styles.tagText, { color: colors.onPrimaryContainer }]}>{t('flashcardAnswer')}</Text>
-            </View>
-            <ScrollView 
-              style={styles.centerContent} 
+            </TouchableOpacity>
+            <ScrollView
+              style={styles.centerContent}
               contentContainerStyle={styles.centerContentContainer}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
             >
-              <Text
-                style={[styles.textMain, { color: colors.onPrimaryContainer }]}
-              >
-                {answer}
-              </Text>
+              <View style={{ width: '100%', alignItems: 'center', paddingBottom: 20, flexGrow: 1, justifyContent: 'center' }}>
+                <Text
+                  style={[
+                    styles.textMain,
+                    { 
+                      color: colors.onPrimaryContainer,
+                      fontSize: answer.length > 100 ? 20 : (answer.length > 50 ? 24 : 28),
+                      lineHeight: answer.length > 100 ? 28 : (answer.length > 50 ? 32 : 36)
+                    }
+                  ]}
+                >
+                  {answer}
+                </Text>
+              </View>
             </ScrollView>
+
+            <TouchableOpacity style={styles.hintContainer} onPress={handleFlip}>
+                <Text style={[styles.hint, { color: colors.onPrimaryContainer }]}>{t('flashcardTapToView')}</Text>
+            </TouchableOpacity>
 
             <Animated.View style={[styles.stampContainer, styles.stampRight, { opacity: likeOpacity }]}>
               <Text style={[styles.stampText, { color: '#4cc9f0', borderColor: '#4cc9f0' }]}>{t('flashcardRemember')}</Text>
@@ -238,7 +271,7 @@ export function FlashcardSwipeItem({
             </Animated.View>
           </Animated.View>
         </View>
-      </Pressable>
+      </View>
     </Animated.View>
   );
 }
@@ -298,7 +331,6 @@ const styles = StyleSheet.create({
   },
   centerContentContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 10,
   },

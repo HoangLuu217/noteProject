@@ -11,6 +11,10 @@ export interface FlashcardDeck {
   title: string;
   createdAt: string;
   updatedAt: string;
+  progress?: number;
+  lastStudiedAt?: string | null;
+  nextReviewDate?: string | null;
+  totalStudied?: number;
 }
 
 export const createDeck = async (
@@ -124,4 +128,17 @@ export const deleteFlashcard = async (
     method: 'DELETE',
     token: accessToken,
   });
+};
+
+export const syncStudyProgress = async (
+  accessToken: string,
+  deckId: string,
+  results: { flashcardId: string, isCorrect: boolean }[]
+): Promise<{ message: string, progress: number, nextReviewDate?: string }> => {
+  const response = await apiRequest<{ message: string, progress: number, nextReviewDate?: string }>(`/flashcards/decks/${deckId}/study`, {
+    method: 'POST',
+    token: accessToken,
+    body: { results }
+  });
+  return response;
 };

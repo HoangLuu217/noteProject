@@ -130,7 +130,7 @@ export function TasksScreen({
   const [endDate, setEndDate] = useState<string>('');
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
-  
+
   const accessToken = useAuthStore((s) => s.accessToken);
 
   const formatShortDate = (dateStr: string) => {

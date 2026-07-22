@@ -15,7 +15,7 @@ import { useTheme } from '../components/ThemeProvider';
 import { useLanguage } from '../components/LanguageProvider';
 import { useAuthStore } from '../stores/authStore';
 import { Flashcard, generateFlashcards, getFlashcardsByNoteId } from '../services/aiFlashcardClient';
-import { createDeck, addFlashcardToDeck, globalFlashcardsCache } from '../services/flashcardClient';
+import { createDeck, addFlashcardToDeck, globalFlashcardsCache, getDecks } from '../services/flashcardClient';
 import { FlashcardStudyScreen } from './FlashcardStudyScreen';
 
 // Memory cache for instant loading of AI generated flashcards per note
@@ -46,6 +46,16 @@ export function FlashcardListScreen({ noteId, noteContent, noteTitle, onClose }:
     if (!accessToken) return;
     setIsLoading(true);
     setLoadingState(forceRegenerate ? 'generating' : 'checking');
+    
+    // Check if deck already exists
+    try {
+      const decks = await getDecks(accessToken);
+      const exists = decks.some(d => d.noteId === noteId);
+      setIsSaved(exists);
+    } catch (e) {
+      console.error('Failed to check existing decks:', e);
+    }
+
     try {
       // Strip html tags from note content for API if needed, but the backend can probably handle it
       const cleanContent = noteContent.replace(/<[^>]*>?/gm, '');
