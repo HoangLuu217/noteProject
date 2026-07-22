@@ -38,9 +38,24 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    parentTaskId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Task',
+      default: null,
+    },
+    isMainTask: {
+      type: Boolean,
+      default: false,
+    },
+    progress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
   },
   {
-    timestamps: { createdAt: true, updatedAt: false },
+    timestamps: { createdAt: true, updatedAt: true },
     collection: 'tasks',
   }
 );

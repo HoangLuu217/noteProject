@@ -9,6 +9,11 @@ export interface Task {
   completed: boolean;
   theme: 'primary' | 'secondary' | 'neutral';
   notificationId?: string;
+  isMainTask?: boolean;
+  progress?: number;
+  parentTaskId?: string;
+  parentTask?: { id: string; title: string };
+  planLabel?: string;
 }
 
 export interface ExpenseItem {
