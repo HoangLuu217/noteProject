@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Calendar, ChevronDown, Clock, Save, Trash2, X } from 'lucide-react-native';
+import { Calendar, ChevronDown, Clock, Pencil, Save, Trash2, X } from 'lucide-react-native';
 import { Task } from '../types';
 import { createThemedStyles } from '../theme';
 import { useTheme } from './ThemeProvider';
@@ -33,6 +33,7 @@ export function TaskDetailModal({ isOpen, onClose, task, onSave, onDelete, planS
   const { t } = useLanguage();
   const styles = useStyles(colors);
 
+  const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [date, setDate] = useState('');
@@ -58,6 +59,7 @@ export function TaskDetailModal({ isOpen, onClose, task, onSave, onDelete, planS
       setPlanLabel(task.parentTask?.title || '');
       setProgress(task.progress || (task.completed ? 100 : 0));
       setError(null);
+      setIsEditing(false); // Default to read-only detail view
     }
   }, [isOpen, task]);
 
@@ -112,8 +114,18 @@ export function TaskDetailModal({ isOpen, onClose, task, onSave, onDelete, planS
     }
   };
 
-  const handleAdjustProgress = (amount: number) => {
-    setProgress((prev) => Math.max(0, Math.min(100, prev + amount)));
+  const handleQuickUpdateProgress = async (newProgress: number) => {
+    const clampedProgress = Math.max(0, Math.min(100, newProgress));
+    setProgress(clampedProgress);
+    try {
+      await onSave(task.id, {
+        progress: clampedProgress,
+        completed: clampedProgress === 100,
+      });
+    } catch (e: any) {
+      console.error('Failed to update progress:', e);
+      setError(e.message || 'Failed to update progress');
+    }
   };
 
   return (
@@ -124,197 +136,259 @@ export function TaskDetailModal({ isOpen, onClose, task, onSave, onDelete, planS
           <View style={styles.modal}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.modalTitle}>{t('taskDetails') || 'Task Details'}</Text>
+              <Text style={styles.modalTitle}>
+                {isEditing
+                  ? (t('editTask') || 'Chỉnh sửa công việc')
+                  : (t('taskDetails') || 'Chi tiết công việc')}
+              </Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
                 <X size={20} color={colors.outline} strokeWidth={3} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-              {/* Title */}
-              <Text style={styles.label}>{t('taskTitle') || 'Title'} *</Text>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder={t('taskTitlePlaceholder') || 'Enter title'}
-                placeholderTextColor={colors.outlineVariant}
-                style={styles.input}
-              />
+            {!isEditing ? (
+              /* DETAIL VIEW (READ-ONLY) */
+              <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingBottom: 24 }}>
+                {task.parentTask && (
+                  <View style={styles.detailParentBadge}>
+                    <Text style={styles.detailParentBadgeText}>
+                      📁 {task.parentTask.title.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
 
-              {/* Description */}
-              <Text style={styles.label}>{t('taskContent') || 'Description'}</Text>
-              <TextInput
-                value={content}
-                onChangeText={setContent}
-                placeholder={t('taskDescPlaceholder') || 'Enter description'}
-                placeholderTextColor={colors.outlineVariant}
-                style={styles.textarea}
-                multiline
-                numberOfLines={3}
-              />
+                <Text style={styles.detailTitle}>{title || task.title}</Text>
 
-              {/* Plan Label */}
-              <Text style={styles.label}>
-                {t('planLabel') || 'Plan Label / Nhãn dán kế hoạch'}
-              </Text>
-              <TextInput
-                value={planLabel}
-                onChangeText={setPlanLabel}
-                placeholder={t('planLabelPlaceholder') || 'e.g. Ôn thi học kỳ, Học lái xe...'}
-                placeholderTextColor={colors.outlineVariant}
-                style={styles.input}
-              />
+                {(date || time || type) && (
+                  <View style={styles.detailMetaRow}>
+                    {date ? (
+                      <View style={styles.detailChip}>
+                        <Calendar size={13} color={colors.primary} strokeWidth={2.5} />
+                        <Text style={styles.detailChipText}>{date}</Text>
+                      </View>
+                    ) : null}
 
-              {planSuggestions && planSuggestions.length > 0 && (
-                <View style={styles.chipsContainer}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
-                    {planSuggestions.map((plan) => (
+                    {time ? (
+                      <View style={styles.detailChip}>
+                        <Clock size={13} color={colors.primary} strokeWidth={2.5} />
+                        <Text style={styles.detailChipText}>{time}</Text>
+                      </View>
+                    ) : null}
+
+                    {type ? (
+                      <View style={styles.detailTypeChip}>
+                        <Text style={styles.detailTypeChipText}>{t(type.toLowerCase()) || type}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+
+                {/* Interactive Progress Selector in Detail View */}
+                <View style={styles.detailProgressContainer}>
+                  <View style={styles.progressHeader}>
+                    <Text style={styles.detailProgressLabel}>
+                      {t('progress') || 'Tiến độ'}
+                    </Text>
+                    <Text style={styles.detailProgressValue}>{progress}%</Text>
+                  </View>
+                  <View style={styles.detailProgressTrack}>
+                    <View style={[styles.detailProgressFill, { width: `${progress}%` }]} />
+                  </View>
+                  <View style={styles.presetRow}>
+                    {[0, 25, 50, 75, 100].map((val) => (
                       <TouchableOpacity
-                        key={plan}
-                        style={[styles.chip, planLabel === plan && styles.chipActive]}
-                        onPress={() => setPlanLabel(plan)}
-                        activeOpacity={0.7}
+                        key={val}
+                        style={[styles.presetBtn, progress === val && styles.presetBtnActive]}
+                        onPress={() => handleQuickUpdateProgress(val)}
+                        activeOpacity={0.8}
                       >
-                        <Text style={[styles.chipText, planLabel === plan && styles.chipTextActive]}>
-                          📁 {plan}
+                        <Text style={[styles.presetText, progress === val && styles.presetTextActive]}>
+                          {val}%
                         </Text>
                       </TouchableOpacity>
                     ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Progress Slider (Manually Edit) */}
-              <Text style={styles.label}>
-                {t('progress') || 'Progress'}: {progress}%
-              </Text>
-              <View style={styles.progressEditContainer}>
-                <View style={styles.progressAdjustRow}>
-                  <TouchableOpacity
-                    style={styles.adjustBtn}
-                    onPress={() => handleAdjustProgress(-10)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.adjustBtnText}>-10%</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.progressPreviewContainer}>
-                    <View style={styles.progressPreviewTrack}>
-                      <View style={[styles.progressPreviewFill, { width: `${progress}%` }]} />
-                    </View>
                   </View>
-
-                  <TouchableOpacity
-                    style={styles.adjustBtn}
-                    onPress={() => handleAdjustProgress(10)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.adjustBtnText}>+10%</Text>
-                  </TouchableOpacity>
                 </View>
 
-                {/* Preset Row */}
-                <View style={styles.presetRow}>
-                  {[0, 25, 50, 75, 100].map((val) => (
+                <View style={styles.detailContentBox}>
+                  <Text style={styles.detailContentLabel}>
+                    {t('taskContent') || 'Nội dung chi tiết'}
+                  </Text>
+                  {content ? (
+                    <Text style={styles.detailContentText}>{content}</Text>
+                  ) : (
+                    <Text style={styles.detailNoContentText}>
+                      {t('noContent') || 'Không có mô tả chi tiết'}
+                    </Text>
+                  )}
+                </View>
+
+                {error && <Text style={styles.errorText}>{error}</Text>}
+
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    onPress={handleDelete}
+                    style={styles.deleteBtn}
+                    disabled={isDeleting}
+                    activeOpacity={0.8}
+                  >
+                    {isDeleting ? (
+                      <ActivityIndicator size="small" color={colors.error} />
+                    ) : (
+                      <>
+                        <Trash2 size={18} color={colors.error} style={{ marginRight: 8 }} />
+                        <Text style={styles.deleteBtnText}>{t('delete') || 'Xóa'}</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => setIsEditing(true)}
+                    style={styles.editBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Pencil size={18} color="#ffffff" style={{ marginRight: 8 }} />
+                    <Text style={styles.editBtnText}>{t('edit') || 'Chỉnh sửa'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            ) : (
+              /* EDIT MODE VIEW */
+              <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingBottom: 24 }}>
+                {/* Title */}
+                <Text style={styles.label}>{t('taskTitle') || 'Title'} *</Text>
+                <TextInput
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder={t('taskTitlePlaceholder') || 'Enter title'}
+                  placeholderTextColor={colors.outlineVariant}
+                  style={styles.input}
+                />
+
+                {/* Description */}
+                <Text style={styles.label}>{t('taskContent') || 'Description'}</Text>
+                <TextInput
+                  value={content}
+                  onChangeText={setContent}
+                  placeholder={t('taskDescPlaceholder') || 'Enter description'}
+                  placeholderTextColor={colors.outlineVariant}
+                  style={styles.textarea}
+                  multiline
+                  numberOfLines={4}
+                />
+
+                {/* Plan Label */}
+                <Text style={styles.label}>
+                  {t('planLabel') || 'Plan Label / Nhãn dán kế hoạch'}
+                </Text>
+                <TextInput
+                  value={planLabel}
+                  onChangeText={setPlanLabel}
+                  placeholder={t('planLabelPlaceholder') || 'e.g. Ôn thi học kỳ, Học lái xe...'}
+                  placeholderTextColor={colors.outlineVariant}
+                  style={styles.input}
+                />
+
+                {planSuggestions && planSuggestions.length > 0 && (
+                  <View style={styles.chipsContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
+                      {planSuggestions.map((plan) => (
+                        <TouchableOpacity
+                          key={plan}
+                          style={[styles.chip, planLabel === plan && styles.chipActive]}
+                          onPress={() => setPlanLabel(plan)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.chipText, planLabel === plan && styles.chipTextActive]}>
+                            📁 {plan}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+
+
+                {/* Date & Time / Category */}
+                <Text style={styles.label}>{t('taskDate') || 'Date'}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.8}
+                  style={[styles.input, { flexDirection: 'row', alignItems: 'center' }]}
+                >
+                  <Calendar size={18} color={colors.onSurfaceVariant} style={{ marginRight: 8 }} />
+                  <Text style={[styles.selectText, !date && styles.placeholderText]}>
+                    {date || 'YYYY-MM-DD'}
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.twoCol}>
+                  <View style={styles.fieldCol}>
+                    <Text style={styles.label}>{t('taskTime') || 'Time'}</Text>
                     <TouchableOpacity
-                      key={val}
-                      style={[styles.presetBtn, progress === val && styles.presetBtnActive]}
-                      onPress={() => setProgress(val)}
+                      onPress={() => setShowTimePicker(true)}
+                      style={styles.selectInput}
                       activeOpacity={0.8}
                     >
-                      <Text style={[styles.presetText, progress === val && styles.presetTextActive]}>
-                        {val}%
+                      <Clock
+                        size={16}
+                        color={time ? colors.onSurface : colors.outlineVariant}
+                        strokeWidth={2.5}
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text numberOfLines={1} style={[styles.selectText, !time && styles.placeholderText]}>
+                        {time || '--:--'}
                       </Text>
                     </TouchableOpacity>
-                  ))}
+                  </View>
+
+                  <View style={styles.fieldCol}>
+                    <Text style={styles.label}>{t('taskCategory') || 'Category'}</Text>
+                    <TouchableOpacity
+                      style={styles.selectInput}
+                      onPress={() => setShowTypePicker(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Text numberOfLines={1} style={[styles.selectText, styles.typeText]}>
+                        {t(type.toLowerCase()) || type}
+                      </Text>
+                      <ChevronDown size={18} color={colors.onSurfaceVariant} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
 
-              {/* Date & Time / Category */}
-              <Text style={styles.label}>{t('taskDate') || 'Date'}</Text>
-              <TouchableOpacity
-                onPress={() => setShowDatePicker(true)}
-                activeOpacity={0.8}
-                style={[styles.input, { flexDirection: 'row', alignItems: 'center' }]}
-              >
-                <Calendar size={18} color={colors.onSurfaceVariant} style={{ marginRight: 8 }} />
-                <Text style={[styles.selectText, !date && styles.placeholderText]}>
-                  {date || 'YYYY-MM-DD'}
-                </Text>
-              </TouchableOpacity>
+                {error && <Text style={styles.errorText}>{error}</Text>}
 
-              <View style={styles.twoCol}>
-                <View style={styles.fieldCol}>
-                  <Text style={styles.label}>{t('taskTime') || 'Time'}</Text>
+                {/* Action Buttons: Cancel and Save */}
+                <View style={styles.actionRow}>
                   <TouchableOpacity
-                    onPress={() => setShowTimePicker(true)}
-                    style={styles.selectInput}
+                    onPress={() => setIsEditing(false)}
+                    style={styles.cancelBtn}
+                    disabled={isSaving}
                     activeOpacity={0.8}
                   >
-                    <Clock
-                      size={16}
-                      color={time ? colors.onSurface : colors.outlineVariant}
-                      strokeWidth={2.5}
-                      style={{ marginRight: 8 }}
-                    />
-                    <Text numberOfLines={1} style={[styles.selectText, !time && styles.placeholderText]}>
-                      {time || '--:--'}
-                    </Text>
+                    <Text style={styles.cancelBtnText}>{t('cancel') || 'Hủy'}</Text>
                   </TouchableOpacity>
-                </View>
 
-                <View style={styles.fieldCol}>
-                  <Text style={styles.label}>{t('taskCategory') || 'Category'}</Text>
                   <TouchableOpacity
-                    style={styles.selectInput}
-                    onPress={() => setShowTypePicker(true)}
+                    onPress={handleSave}
+                    style={styles.saveBtn}
+                    disabled={isSaving}
                     activeOpacity={0.8}
                   >
-                    <Text numberOfLines={1} style={[styles.selectText, styles.typeText]}>
-                      {t(type.toLowerCase()) || type}
-                    </Text>
-                    <ChevronDown size={18} color={colors.onSurfaceVariant} strokeWidth={2.5} />
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Save size={18} color="#fff" style={{ marginRight: 8 }} />
+                        <Text style={styles.saveBtnText}>{t('save') || 'Lưu'}</Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 </View>
-              </View>
-
-              {error && <Text style={styles.errorText}>{error}</Text>}
-
-              {/* Action Buttons */}
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  onPress={handleDelete}
-                  style={styles.deleteBtn}
-                  disabled={isDeleting || isSaving}
-                  activeOpacity={0.8}
-                >
-                  {isDeleting ? (
-                    <ActivityIndicator size="small" color={colors.error} />
-                  ) : (
-                    <>
-                      <Trash2 size={18} color={colors.error} style={{ marginRight: 8 }} />
-                      <Text style={styles.deleteBtnText}>{t('delete') || 'Xóa'}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleSave}
-                  style={styles.saveBtn}
-                  disabled={isSaving || isDeleting}
-                  activeOpacity={0.8}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Save size={18} color="#fff" style={{ marginRight: 8 }} />
-                      <Text style={styles.saveBtnText}>{t('save') || 'Lưu'}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+              </ScrollView>
+            )}
           </View>
         </View>
 
@@ -383,8 +457,8 @@ const useStyles = createThemedStyles((colors) => ({
     maxWidth: 420,
     backgroundColor: colors.surfaceContainerLowest,
     borderRadius: 36,
-    paddingHorizontal: 28,
-    paddingTop: 28,
+    paddingHorizontal: 24,
+    paddingTop: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
@@ -397,11 +471,11 @@ const useStyles = createThemedStyles((colors) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalTitle: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 24,
+    fontSize: 22,
     color: colors.onSurface,
   },
   closeBtn: {
@@ -418,12 +492,12 @@ const useStyles = createThemedStyles((colors) => ({
     marginTop: 8,
   },
   input: {
-    height: 60,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+    height: 56,
+    paddingHorizontal: 18,
+    borderRadius: 18,
     backgroundColor: colors.surface,
     fontFamily: 'Quicksand-Medium',
-    fontSize: 16,
+    fontSize: 15,
     color: colors.onSurface,
     marginBottom: 12,
     borderWidth: 1,
@@ -431,12 +505,12 @@ const useStyles = createThemedStyles((colors) => ({
   },
   textarea: {
     minHeight: 100,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 18,
     backgroundColor: colors.surface,
     fontFamily: 'Quicksand-Medium',
-    fontSize: 16,
+    fontSize: 15,
     color: colors.onSurface,
     marginBottom: 12,
     textAlignVertical: 'top',
@@ -445,17 +519,17 @@ const useStyles = createThemedStyles((colors) => ({
   },
   twoCol: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
     marginBottom: 12,
   },
   fieldCol: {
     flex: 1,
   },
   selectInput: {
-    height: 60,
-    borderRadius: 20,
+    height: 56,
+    borderRadius: 18,
     backgroundColor: colors.surface,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -464,7 +538,7 @@ const useStyles = createThemedStyles((colors) => ({
   },
   selectText: {
     fontFamily: 'Quicksand-Medium',
-    fontSize: 16,
+    fontSize: 15,
     color: colors.onSurface,
   },
   placeholderText: {
@@ -483,14 +557,14 @@ const useStyles = createThemedStyles((colors) => ({
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
     marginTop: 16,
   },
   deleteBtn: {
     flex: 1,
-    height: 52,
+    height: 48,
     borderRadius: 100,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.error,
     alignItems: 'center',
     justifyContent: 'center',
@@ -498,12 +572,12 @@ const useStyles = createThemedStyles((colors) => ({
   },
   deleteBtnText: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 16,
+    fontSize: 15,
     color: colors.error,
   },
   saveBtn: {
     flex: 2,
-    height: 52,
+    height: 48,
     borderRadius: 100,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -517,13 +591,47 @@ const useStyles = createThemedStyles((colors) => ({
   },
   saveBtnText: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 16,
+    fontSize: 15,
     color: '#ffffff',
+  },
+  editBtn: {
+    flex: 2,
+    height: 48,
+    borderRadius: 100,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  editBtnText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 15,
+    color: '#ffffff',
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 100,
+    borderWidth: 1.5,
+    borderColor: colors.outlineVariant,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 15,
+    color: colors.onSurfaceVariant,
   },
   progressEditContainer: {
     backgroundColor: colors.surfaceContainer,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 18,
+    padding: 14,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
@@ -531,26 +639,26 @@ const useStyles = createThemedStyles((colors) => ({
   progressAdjustRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   adjustBtn: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
   adjustBtnText: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 14,
+    fontSize: 13,
     color: colors.onSurfaceVariant,
   },
   progressPreviewContainer: {
     flex: 1,
   },
   progressPreviewTrack: {
-    height: 12,
+    height: 10,
     backgroundColor: colors.surface,
     borderRadius: 100,
     overflow: 'hidden',
@@ -564,16 +672,16 @@ const useStyles = createThemedStyles((colors) => ({
   presetRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 10,
   },
   presetBtn: {
     flex: 1,
-    marginHorizontal: 3,
+    marginHorizontal: 2,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     alignItems: 'center',
   },
   presetBtnActive: {
@@ -582,7 +690,7 @@ const useStyles = createThemedStyles((colors) => ({
   },
   presetText: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 13,
+    fontSize: 12,
     color: colors.onSurfaceVariant,
   },
   presetTextActive: {
@@ -650,5 +758,127 @@ const useStyles = createThemedStyles((colors) => ({
   },
   chipTextActive: {
     color: '#ffffff',
+  },
+  // Read-only Detail styles
+  detailParentBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary + '15',
+    borderColor: colors.primary + '30',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  detailParentBadgeText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 11,
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  detailTitle: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 20,
+    color: colors.onSurface,
+    lineHeight: 26,
+    marginBottom: 12,
+  },
+  detailMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  detailChip: {
+    backgroundColor: colors.surfaceContainer,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  detailChipText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+  },
+  detailTypeChip: {
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+  },
+  detailTypeChipText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 12,
+    color: colors.primary,
+  },
+  detailProgressContainer: {
+    marginBottom: 14,
+    padding: 12,
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailProgressLabel: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+  },
+  detailProgressValue: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 12,
+    color: colors.primary,
+  },
+  detailProgressTrack: {
+    height: 6,
+    backgroundColor: colors.surface,
+    borderRadius: 100,
+    overflow: 'hidden',
+    marginTop: 6,
+  },
+  detailProgressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 100,
+  },
+  detailContentBox: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    marginBottom: 14,
+  },
+  detailContentLabel: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 12,
+    color: colors.outline,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailContentText: {
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 15,
+    color: colors.onSurface,
+    lineHeight: 22,
+  },
+  detailNoContentText: {
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 14,
+    color: colors.outlineVariant,
+    fontStyle: 'italic',
   },
 }));
