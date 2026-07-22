@@ -1,4 +1,5 @@
 const flashcardService = require('../services/flashcardService');
+const flashcardStudyService = require('../services/flashcardStudyService');
 const { sendError, sendSuccess } = require('../utils/response');
 
 // ========================
@@ -114,6 +115,26 @@ const deleteFlashcard = async (req, res, next) => {
   }
 };
 
+// ========================
+// STUDY / SPACED REPETITION
+// ========================
+
+const syncStudyProgress = async (req, res, next) => {
+  try {
+    const { results } = req.body;
+    if (!results || !Array.isArray(results)) {
+      return sendError(res, 'Results must be an array', 400);
+    }
+    const data = await flashcardStudyService.syncStudyProgress(req.user._id, req.params.deckId, results);
+    return sendSuccess(res, 'Study progress synced successfully', data);
+  } catch (error) {
+    if (error.statusCode) {
+      return sendError(res, error.message, error.statusCode);
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   createDeck,
   getDecks,
@@ -124,4 +145,5 @@ module.exports = {
   getFlashcardsByDeck,
   updateFlashcard,
   deleteFlashcard,
+  syncStudyProgress
 };

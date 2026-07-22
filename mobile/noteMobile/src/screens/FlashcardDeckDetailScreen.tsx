@@ -17,37 +17,49 @@ import { ChevronLeft, Plus, Trash2, Zap, Edit2, ChevronDown, ChevronUp } from 'l
 import { useTheme } from '../components/ThemeProvider';
 import { useLanguage } from '../components/LanguageProvider';
 import { useAuthStore } from '../stores/authStore';
-import { 
-  FlashcardDeck, 
-  getFlashcardsByDeck, 
-  addFlashcardToDeck, 
-  updateFlashcard, 
+import {
+  FlashcardDeck,
+  getFlashcardsByDeck,
+  addFlashcardToDeck,
+  updateFlashcard,
   deleteFlashcard,
   globalFlashcardsCache
 } from '../services/flashcardClient';
 import { Flashcard } from '../services/aiFlashcardClient';
 import { FlashcardStudyScreen } from './FlashcardStudyScreen';
+import { CustomAlert } from '../components/CustomAlert';
 
 interface FlashcardDeckDetailScreenProps {
   deck: FlashcardDeck;
   onClose: () => void;
+  onDeckUpdated?: (deck: FlashcardDeck) => void;
 }
 
-export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetailScreenProps) {
+export function FlashcardDeckDetailScreen({ deck, onClose, onDeckUpdated }: FlashcardDeckDetailScreenProps) {
+  const [currentDeck, setCurrentDeck] = useState(deck);
   const { colors } = useTheme();
   const { t, language } = useLanguage();
   const accessToken = useAuthStore((state) => state.accessToken);
   const [flashcards, setFlashcards] = useState<(Flashcard & { _id: string })[]>([]);
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(true);
-  const [isStudyMode, setIsStudyMode] = useState(false);
+  const [studyCards, setStudyCards] = useState<(Flashcard & { _id: string })[] | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+
+  // Custom Alert State
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    isDestructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
-  
+
   // Form State
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
@@ -57,7 +69,7 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
 
   const fetchCards = async () => {
     if (!accessToken) return;
-    
+
     if (globalFlashcardsCache[deck._id]) {
       setFlashcards(globalFlashcardsCache[deck._id]);
       setIsLoading(false);
@@ -109,7 +121,7 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
     setIsSaving(true);
     try {
       const parsedOptions = optionsText.split('\n').map(o => o.trim()).filter(o => o.length > 0);
-      
+
       const payload = {
         question,
         answer,
@@ -118,22 +130,42 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
         difficulty,
       };
 
+      setIsModalOpen(false); // Optimistic UI: Close immediately!
+
       if (editingCardId) {
-        // Edit
-        const updated = await updateFlashcard(accessToken, editingCardId, payload);
-        const newCards = flashcards.map(c => c._id === editingCardId ? updated : c);
+        // Edit Optimistically
+        const optimisticUpdated = { _id: editingCardId, ...payload, status: 'NEW' as any };
+        const newCards = flashcards.map(c => c._id === editingCardId ? { ...c, ...payload } : c);
         setFlashcards(newCards);
         globalFlashcardsCache[deck._id] = newCards;
+
+        updateFlashcard(accessToken, editingCardId, payload).catch(e => {
+          console.error('Failed to update flashcard:', e);
+          fetchCards(); // Rollback on error
+          Alert.alert(language === 'en' ? 'Error' : 'Lỗi', language === 'en' ? 'Failed to save flashcard' : 'Không thể lưu thẻ');
+        });
       } else {
-        // Add
-        const created = await addFlashcardToDeck(accessToken, deck._id, payload);
-        const newCards = [created, ...flashcards];
+        // Add Optimistically
+        const optimisticId = Math.random().toString();
+        const optimisticCreated = { _id: optimisticId, explanation: '', ...payload, status: 'NEW' as any } as Flashcard & { _id: string };
+        const newCards = [optimisticCreated, ...flashcards];
         setFlashcards(newCards);
         globalFlashcardsCache[deck._id] = newCards;
+
+        addFlashcardToDeck(accessToken, deck._id, payload).then(created => {
+          setFlashcards(prev => {
+            const updated = prev.map(c => c._id === optimisticId ? created : c);
+            globalFlashcardsCache[deck._id] = updated;
+            return updated;
+          });
+        }).catch(e => {
+          console.error('Failed to create flashcard:', e);
+          fetchCards(); // Rollback on error
+          Alert.alert(language === 'en' ? 'Error' : 'Lỗi', language === 'en' ? 'Failed to save flashcard' : 'Không thể lưu thẻ');
+        });
       }
-      setIsModalOpen(false);
     } catch (e) {
-      console.error('Failed to save flashcard:', e);
+      console.error('Failed to process flashcard payload:', e);
       Alert.alert(language === 'en' ? 'Error' : 'Lỗi', language === 'en' ? 'Failed to save flashcard' : 'Không thể lưu thẻ');
     } finally {
       setIsSaving(false);
@@ -141,31 +173,27 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
   };
 
   const handleDeleteCard = (cardId: string) => {
-    Alert.alert(
-      language === 'en' ? 'Delete Card' : 'Xóa thẻ',
-      language === 'en' ? 'Are you sure you want to delete this card?' : 'Bạn có chắc chắn muốn xóa thẻ này?',
-      [
-        { text: language === 'en' ? 'Cancel' : 'Hủy', style: 'cancel' },
-        {
-          text: language === 'en' ? 'Delete' : 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            if (!accessToken) return;
-            try {
-              await deleteFlashcard(accessToken, cardId);
-              const newCards = flashcards.filter(c => c._id !== cardId);
-              setFlashcards(newCards);
-              globalFlashcardsCache[deck._id] = newCards;
-            } catch (e) {
-              console.error('Failed to delete card:', e);
-            }
-          },
-        },
-      ]
-    );
+    setAlertConfig({
+      visible: true,
+      title: language === 'en' ? 'Delete Flashcard' : 'Xóa thẻ ghi nhớ',
+      message: language === 'en' ? 'Are you sure you want to delete this flashcard?' : 'Bạn có chắc chắn muốn xóa thẻ này?',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!accessToken) return;
+        setAlertConfig(null);
+        try {
+          await deleteFlashcard(accessToken, cardId);
+          setFlashcards(prev => {
+            const newCards = prev.filter(c => c._id !== cardId);
+            globalFlashcardsCache[deck._id] = newCards;
+            return newCards;
+          });
+        } catch (e) {
+          console.error('Failed to delete card:', e);
+        }
+      }
+    });
   };
-
-
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -178,19 +206,38 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
         </Text>
       </View>
 
-      {isLoading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={[styles.statsCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
+          <View style={styles.statRow}>
+            <Text style={[styles.statLabel, { color: colors.onSurfaceVariant }]}>{language === 'en' ? 'Progress:' : 'Tiến độ:'}</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{currentDeck.progress || 0}% {language === 'en' ? 'LEARNED' : 'ĐÃ HỌC'}</Text>
+          </View>
+          <View style={styles.statRow}>
+            <Text style={[styles.statLabel, { color: colors.onSurfaceVariant }]}>{language === 'en' ? 'Last Studied:' : 'Lần cuối học:'}</Text>
+            <Text style={[styles.statValue, { color: colors.onSurface }]}>
+              {currentDeck.lastStudiedAt ? new Date(currentDeck.lastStudiedAt).toLocaleDateString() : 'Never'}
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <Text style={[styles.statLabel, { color: colors.onSurfaceVariant }]}>{language === 'en' ? 'Next Review:' : 'Ôn tập tiếp theo:'}</Text>
+            <Text style={[styles.statValue, { color: colors.onSurface }]}>
+              {currentDeck.nextReviewDate ? new Date(currentDeck.nextReviewDate).toLocaleDateString() : (language === 'en' ? 'Not scheduled' : 'Chưa có lịch')}
+            </Text>
+          </View>
         </View>
-      ) : flashcards.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Text style={[styles.emptyText, { color: colors.onSurfaceVariant }]}>
-            {language === 'en' ? 'This deck is empty.' : 'Bộ thẻ này trống.'}
-          </Text>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {flashcards.map((card, index) => {
+
+        {isLoading ? (
+          <View style={[styles.centerContainer, { minHeight: 200 }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : flashcards.length === 0 ? (
+          <View style={[styles.centerContainer, { minHeight: 200 }]}>
+            <Text style={[styles.emptyText, { color: colors.onSurfaceVariant }]}>
+              {language === 'en' ? 'This deck is empty.' : 'Bộ thẻ này trống.'}
+            </Text>
+          </View>
+        ) : (
+          flashcards.map((card, index) => {
             const isExpanded = expandedIndex === index;
             return (
               <View key={card._id} style={[styles.cardItem, { backgroundColor: colors.surfaceContainerLowest, borderColor: colors.outlineVariant }]}>
@@ -245,59 +292,79 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
                   </View>
                 </TouchableOpacity>
 
-                  {expandedIndex === index && (
-                    <View style={[styles.cardAnswerContainer, { borderTopColor: colors.surfaceVariant }]}>
-                      {card.options && card.options.length > 0 && (
-                        <View style={{ marginBottom: 12 }}>
-                          <Text style={[styles.cardAnswerLabel, { color: colors.tertiary }]}>{language === 'en' ? 'Options:' : 'Các lựa chọn:'}</Text>
-                          {card.options.map((opt, idx) => (
-                            <Text key={idx} style={[styles.cardAnswer, { color: colors.onSurfaceVariant }]}>
-                              {opt}
-                            </Text>
-                          ))}
-                        </View>
-                      )}
-                      
-                      <Text style={[styles.cardAnswerLabel, { color: colors.tertiary }]}>{t('flashcardAnswerLabel')}</Text>
-                      <Text style={[styles.cardAnswer, { color: colors.onSurfaceVariant }]}>
-                        {card.answer}
-                      </Text>
-                    </View>
-                  )}
+                {expandedIndex === index && (
+                  <View style={[styles.cardAnswerContainer, { borderTopColor: colors.surfaceVariant }]}>
+                    {card.options && card.options.length > 0 && (
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={[styles.cardAnswerLabel, { color: colors.tertiary }]}>{language === 'en' ? 'Options:' : 'Các lựa chọn:'}</Text>
+                        {card.options.map((opt, idx) => (
+                          <Text key={idx} style={[styles.cardAnswer, { color: colors.onSurfaceVariant }]}>
+                            {opt}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+
+                    <Text style={[styles.cardAnswerLabel, { color: colors.tertiary }]}>{t('flashcardAnswerLabel')}</Text>
+                    <Text style={[styles.cardAnswer, { color: colors.onSurfaceVariant }]}>
+                      {card.answer}
+                    </Text>
+                  </View>
+                )}
               </View>
             );
-          })}
-          <View style={{ height: 120 }} />
-        </ScrollView>
-      )}
+          })
+        )}
+        <View style={{ height: 120 }} />
+      </ScrollView>
 
       {/* Floating Action Buttons */}
-      <View style={styles.fabContainer}>
+      <View style={[styles.fabContainer, { flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'center' }]}>
         {flashcards.length > 0 && (
-          <TouchableOpacity
-            style={[styles.studyButton, { backgroundColor: colors.primaryContainer }]}
-            onPress={() => setIsStudyMode(true)}
-            activeOpacity={0.8}
-          >
-            <Zap size={24} color={colors.onPrimaryContainer} style={{ marginRight: 10 }} />
-            <Text style={[styles.studyButtonText, { color: colors.onPrimaryContainer }]}>
-              {t('flashcardStartStudy')}
-            </Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[styles.studyButton, { backgroundColor: colors.primaryContainer, flex: 1, paddingVertical: 12 }]}
+              onPress={() => {
+                const now = new Date();
+                now.setHours(0, 0, 0, 0);
+                const dueCards = flashcards.filter(c => !c.nextReviewDate || new Date(c.nextReviewDate) <= now);
+                if (dueCards.length === 0) {
+                  Alert.alert(language === 'en' ? 'All caught up!' : 'Tuyệt vời!', language === 'en' ? 'You have no due cards to study today.' : 'Bạn không có thẻ nào cần ôn tập hôm nay.');
+                  return;
+                }
+                setStudyCards(dueCards);
+              }}
+              activeOpacity={0.8}
+            >
+              <Zap size={20} color={colors.onPrimaryContainer} style={{ marginRight: 8 }} />
+              <Text style={[styles.studyButtonText, { color: colors.onPrimaryContainer, fontSize: 16 }]}>
+                {language === 'en' ? 'Study Due' : 'Ôn tập'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.studyButton, { backgroundColor: colors.primaryContainer, flex: 1, paddingVertical: 12 }]}
+              onPress={() => setStudyCards(flashcards)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.studyButtonText, { color: colors.onPrimaryContainer, fontSize: 16 }]}>
+                {language === 'en' ? 'Study All' : 'Học tất cả'}
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
         <TouchableOpacity
           style={[
-            styles.addButton, 
-            { 
+            styles.addButton,
+            {
               backgroundColor: colors.primaryContainer,
               shadowColor: colors.primary,
-              borderBottomColor: colors.primary + '33'
             }
           ]}
           onPress={openAddModal}
           activeOpacity={0.85}
         >
-          <Plus size={28} color={colors.primary} strokeWidth={3} />
+          <Plus size={28} color={colors.onPrimaryContainer} strokeWidth={3} />
         </TouchableOpacity>
       </View>
 
@@ -309,7 +376,7 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
         statusBarTranslucent={true}
         onRequestClose={() => setIsModalOpen(false)}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1, backgroundColor: colors.surface }}
         >
@@ -319,148 +386,179 @@ export function FlashcardDeckDetailScreen({ deck, onClose }: FlashcardDeckDetail
                 <ChevronLeft size={28} color={colors.onSurface} />
               </TouchableOpacity>
               <Text style={[styles.headerTitle, { color: colors.onSurface }]}>
-                {editingCardId 
-                  ? (language === 'en' ? 'Edit Flashcard' : 'Sửa thẻ') 
+                {editingCardId
+                  ? (language === 'en' ? 'Edit Flashcard' : 'Sửa thẻ')
                   : (language === 'en' ? 'New Flashcard' : 'Thêm thẻ mới')}
               </Text>
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 16, paddingBottom: 60, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
 
-            <View style={styles.typeToggleContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.typeButton,
-                  { backgroundColor: type === 'BASIC' ? colors.primaryContainer : colors.surfaceContainerHighest }
-                ]}
-                onPress={() => setType('BASIC')}
-              >
-                <Text style={[styles.typeButtonText, { color: type === 'BASIC' ? colors.onPrimaryContainer : colors.onSurfaceVariant }]}>
-                  {language === 'en' ? 'Basic' : 'Tự luận'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.typeButton,
-                  { backgroundColor: type === 'MULTIPLE_CHOICE' ? colors.primaryContainer : colors.surfaceContainerHighest }
-                ]}
-                onPress={() => setType('MULTIPLE_CHOICE')}
-              >
-                <Text style={[styles.typeButtonText, { color: type === 'MULTIPLE_CHOICE' ? colors.onPrimaryContainer : colors.onSurfaceVariant }]}>
-                  {language === 'en' ? 'Multiple Choice' : 'Trắc nghiệm'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            <Text style={[styles.label, { color: colors.onSurfaceVariant }]}>
-              {language === 'en' ? 'Question' : 'Câu hỏi'}
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.surfaceContainerHighest, color: colors.onSurface, borderColor: colors.outlineVariant }]}
-              value={question}
-              onChangeText={setQuestion}
-              multiline
-            />
-
-            {type === 'MULTIPLE_CHOICE' && (
-              <>
-                <Text style={[styles.label, { color: colors.onSurfaceVariant }]}>
-                  {language === 'en' ? 'Options (One per line)' : 'Các lựa chọn (Mỗi dòng 1 đáp án)'}
-                </Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.surfaceContainerHighest, color: colors.onSurface, borderColor: colors.outlineVariant, minHeight: 100 }]}
-                  value={optionsText}
-                  onChangeText={setOptionsText}
-                  multiline
-                  placeholder={language === 'en' ? 'Option 1\nOption 2\nOption 3\nOption 4' : 'Lựa chọn 1\nLựa chọn 2\nLựa chọn 3\nLựa chọn 4'}
-                  placeholderTextColor={colors.outline}
-                />
-              </>
-            )}
-
-            <Text style={[styles.label, { color: colors.onSurfaceVariant }]}>
-              {language === 'en' ? 'Answer' : 'Đáp án đúng'}
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.surfaceContainerHighest, color: colors.onSurface, borderColor: colors.outlineVariant, minHeight: 80 }]}
-              value={answer}
-              onChangeText={setAnswer}
-              multiline
-            />
-
-            <Text style={[styles.label, { color: colors.onSurfaceVariant }]}>
-              {language === 'en' ? 'Difficulty' : 'Độ khó'}
-            </Text>
-            <View style={styles.difficultySelector}>
-              {(['EASY', 'HARD'] as const).map(diff => (
+              <View style={styles.typeToggleContainer}>
                 <TouchableOpacity
-                  key={diff}
                   style={[
-                    styles.diffButton,
-                    {
-                      backgroundColor: difficulty === diff ? colors.primaryContainer : colors.surfaceContainerHighest,
-                      borderColor: difficulty === diff ? colors.primary : colors.outlineVariant,
-                    }
+                    styles.typeButton,
+                    { backgroundColor: type === 'BASIC' ? colors.primaryContainer : colors.surfaceContainerHighest }
                   ]}
-                  onPress={() => setDifficulty(diff)}
+                  onPress={() => setType('BASIC')}
                 >
-                  <Text style={[
-                    styles.diffButtonText,
-                    { color: difficulty === diff ? colors.onPrimaryContainer : colors.onSurfaceVariant }
-                  ]}>
-                    {diff === 'EASY' ? t('flashcardDiffEasy') : t('flashcardDiffHard')}
+                  <Text style={[styles.typeButtonText, { color: type === 'BASIC' ? colors.onPrimaryContainer : colors.onSurfaceVariant }]}>
+                    {language === 'en' ? 'Basic' : 'Tự luận'}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={[styles.modalActions, { marginTop: 'auto' }]}>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.surfaceVariant }]}
-                onPress={() => setIsModalOpen(false)}
-              >
-                <Text style={[styles.modalButtonText, { color: colors.onSurfaceVariant }]}>
-                  {language === 'en' ? 'Cancel' : 'Hủy'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.primary }]}
-                onPress={handleSaveCard}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
-                ) : (
-                  <Text style={[styles.modalButtonText, { color: colors.onPrimary }]}>
-                    {language === 'en' ? 'Save' : 'Lưu'}
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    { backgroundColor: type === 'MULTIPLE_CHOICE' ? colors.primaryContainer : colors.surfaceContainerHighest }
+                  ]}
+                  onPress={() => setType('MULTIPLE_CHOICE')}
+                >
+                  <Text style={[styles.typeButtonText, { color: type === 'MULTIPLE_CHOICE' ? colors.onPrimaryContainer : colors.onSurfaceVariant }]}>
+                    {language === 'en' ? 'Multiple Choice' : 'Trắc nghiệm'}
                   </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.label, { color: colors.onSurfaceVariant }]}>
+                {language === 'en' ? 'Question' : 'Câu hỏi'}
+              </Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surfaceContainerHighest, color: colors.onSurface, borderColor: colors.outlineVariant }]}
+                value={question}
+                onChangeText={setQuestion}
+                multiline
+              />
+
+              {type === 'MULTIPLE_CHOICE' && (
+                <>
+                  <Text style={[styles.label, { color: colors.onSurfaceVariant }]}>
+                    {language === 'en' ? 'Options (One per line)' : 'Các lựa chọn (Mỗi dòng 1 đáp án)'}
+                  </Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surfaceContainerHighest, color: colors.onSurface, borderColor: colors.outlineVariant, minHeight: 100 }]}
+                    value={optionsText}
+                    onChangeText={setOptionsText}
+                    multiline
+                    placeholder={language === 'en' ? 'Option 1\nOption 2\nOption 3\nOption 4' : 'Lựa chọn 1\nLựa chọn 2\nLựa chọn 3\nLựa chọn 4'}
+                    placeholderTextColor={colors.outline}
+                  />
+                </>
+              )}
+
+              <Text style={[styles.label, { color: colors.onSurfaceVariant }]}>
+                {language === 'en' ? 'Answer' : 'Đáp án đúng'}
+              </Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surfaceContainerHighest, color: colors.onSurface, borderColor: colors.outlineVariant, minHeight: 80 }]}
+                value={answer}
+                onChangeText={setAnswer}
+                multiline
+              />
+
+              <Text style={[styles.label, { color: colors.onSurfaceVariant }]}>
+                {language === 'en' ? 'Difficulty' : 'Độ khó'}
+              </Text>
+              <View style={styles.difficultySelector}>
+                {(['EASY', 'HARD'] as const).map(diff => (
+                  <TouchableOpacity
+                    key={diff}
+                    style={[
+                      styles.diffButton,
+                      {
+                        backgroundColor: difficulty === diff ? colors.primaryContainer : colors.surfaceContainerHighest,
+                        borderColor: difficulty === diff ? colors.primary : colors.outlineVariant,
+                      }
+                    ]}
+                    onPress={() => setDifficulty(diff)}
+                  >
+                    <Text style={[
+                      styles.diffButtonText,
+                      { color: difficulty === diff ? colors.onPrimaryContainer : colors.onSurfaceVariant }
+                    ]}>
+                      {diff === 'EASY' ? t('flashcardDiffEasy') : t('flashcardDiffHard')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={[styles.modalActions, { marginTop: 'auto' }]}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: colors.surfaceVariant }]}
+                  onPress={() => setIsModalOpen(false)}
+                >
+                  <Text style={[styles.modalButtonText, { color: colors.onSurfaceVariant }]}>
+                    {language === 'en' ? 'Cancel' : 'Hủy'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                  onPress={handleSaveCard}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Text style={[styles.modalButtonText, { color: colors.onPrimary }]}>
+                      {language === 'en' ? 'Save' : 'Lưu'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
       {/* Study Mode Modal */}
       <Modal
-        visible={isStudyMode}
+        visible={studyCards !== null}
         animationType="slide"
         presentationStyle="overFullScreen"
         transparent={true}
         statusBarTranslucent={true}
-        onRequestClose={() => setIsStudyMode(false)}
+        onRequestClose={() => setStudyCards(null)}
       >
         <View style={{ flex: 1, backgroundColor: colors.background }}>
-          {isStudyMode && (
+          {studyCards && (
             <FlashcardStudyScreen
-              flashcards={flashcards}
-              noteTitle={deck.title.replace('Flashcards from: ', '')}
-              onClose={() => setIsStudyMode(false)}
+              flashcards={studyCards}
+              noteTitle={currentDeck.title.replace('Flashcards from: ', '')}
+              onClose={() => {
+                setStudyCards(null);
+              }}
+              deckId={currentDeck._id}
+              onProgressUpdate={(newProgress, nextReviewDate) => {
+                // Approximate updating local state for immediate feedback
+                const updated = {
+                  ...currentDeck,
+                  progress: newProgress,
+                  lastStudiedAt: new Date().toISOString(),
+                  ...(nextReviewDate ? { nextReviewDate } : {})
+                };
+                setCurrentDeck(updated);
+                if (onDeckUpdated) {
+                  onDeckUpdated(updated);
+                }
+                fetchCards(); // Safely fetch fresh data AFTER server sync is complete
+              }}
             />
           )}
         </View>
       </Modal>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertConfig?.visible || false}
+        title={alertConfig?.title || ''}
+        message={alertConfig?.message || ''}
+        isDestructive={alertConfig?.isDestructive}
+        onCancel={() => setAlertConfig(null)}
+        onConfirm={() => {
+          if (alertConfig?.onConfirm) {
+            alertConfig.onConfirm();
+          }
+        }}
+      />
     </View>
   );
 }
@@ -509,6 +607,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
+  statsCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  statLabel: {
+    fontFamily: 'Quicksand-Medium',
+    fontSize: 14,
+  },
+  statValue: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 14,
+  },
   cardQuestionContainer: {
     flexDirection: 'row',
     flex: 1,
@@ -556,13 +674,13 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 100, // Đồng bộ độ cao với màn hình Expenses (100)
     left: 20,
     right: 20,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   studyButton: {
     flex: 1,
@@ -587,14 +705,13 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
-    zIndex: 99,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
     borderWidth: 2,
     borderColor: 'rgba(0, 0, 0, 0.05)',
-    borderBottomWidth: 5,
   },
   modalOverlay: {
     flex: 1,

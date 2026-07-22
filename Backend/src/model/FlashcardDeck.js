@@ -21,6 +21,24 @@ const flashcardDeckSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    progress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100
+    },
+    lastStudiedAt: {
+      type: Date,
+      default: null
+    },
+    nextReviewDate: {
+      type: Date,
+      default: null
+    },
+    totalStudied: {
+      type: Number,
+      default: 0
+    }
   },
   {
     timestamps: { createdAt: true, updatedAt: false },

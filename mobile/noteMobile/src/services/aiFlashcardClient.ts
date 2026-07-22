@@ -7,6 +7,10 @@ export interface Flashcard {
   answer: string;
   explanation: string;
   difficulty?: 'EASY' | 'HARD';
+  status?: 'NEW' | 'LEARNING' | 'REVIEW' | 'MASTERED';
+  interval?: number;
+  repetitions?: number;
+  nextReviewDate?: string | null;
 }
 
 export const generateFlashcards = async (

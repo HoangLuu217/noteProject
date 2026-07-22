@@ -30,6 +30,27 @@ const flashcardSchema = new mongoose.Schema(
       enum: ['BASIC', 'MULTIPLE_CHOICE'],
       default: 'BASIC',
     },
+    status: {
+      type: String,
+      enum: ['NEW', 'LEARNING', 'REVIEW', 'MASTERED'],
+      default: 'NEW'
+    },
+    easeFactor: {
+      type: Number,
+      default: 2.5
+    },
+    interval: {
+      type: Number,
+      default: 0
+    },
+    repetitions: {
+      type: Number,
+      default: 0
+    },
+    nextReviewDate: {
+      type: Date,
+      default: null
+    }
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
