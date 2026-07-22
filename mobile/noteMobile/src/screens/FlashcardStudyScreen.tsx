@@ -9,17 +9,20 @@ import { Flashcard } from '../services/aiFlashcardClient';
 import { useAuthStore } from '../stores/authStore';
 import { SettingsModal } from '../components/SettingsModal';
 import { checkInStreak } from '../services/streakService';
+import { syncStudyProgress } from '../services/flashcardClient';
 
 type TabType = 'ALL' | 'EASY' | 'HARD' | 'FORGOTTEN';
-type CardRecord = Flashcard & { originalIndex: number, status: 'PENDING' | 'DONE' | 'FORGOTTEN' };
+type CardRecord = Omit<Flashcard, 'status'> & { _id?: string, originalIndex: number, status: 'PENDING' | 'DONE' | 'FORGOTTEN', swipeCount?: number };
 
 interface FlashcardStudyScreenProps {
-  flashcards: Flashcard[];
+  flashcards: (Flashcard & { _id?: string })[];
   noteTitle?: string;
+  deckId?: string;
   onClose: () => void;
+  onProgressUpdate?: (newProgress: number, nextReviewDate?: string) => void;
 }
 
-export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: FlashcardStudyScreenProps) {
+export function FlashcardStudyScreen({ flashcards, noteTitle, deckId, onClose, onProgressUpdate }: FlashcardStudyScreenProps) {
   const { colors } = useTheme();
   const { t } = useLanguage();
   const streak = useAuthStore((state) => state.streak);
@@ -33,11 +36,18 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
   const [score, setScore] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>('ALL');
 
+  // Store study results to sync with backend
+  const [studyResults, setStudyResults] = useState<{ flashcardId: string, isCorrect: boolean }[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const visibleDeck = useMemo(() => {
     return cards.filter(c => {
+      if (c.status === 'DONE') return false;
       if (activeTab === 'FORGOTTEN') return c.status === 'FORGOTTEN';
-      if (c.status !== 'PENDING') return false;
       if (activeTab === 'ALL') return true;
+      
+      // For HARD and EASY tabs, only show PENDING cards
+      if (c.status !== 'PENDING') return false;
       if (activeTab === 'HARD') return c.difficulty === 'HARD';
       if (activeTab === 'EASY') return c.difficulty === 'EASY';
       return false;
@@ -47,7 +57,16 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
   const handleSwipeRight = (originalIndex: number, points: number = 20) => {
     setRememberedCount((prev) => prev + 1);
     setScore((prev) => prev + points);
-    setCards(prev => prev.map(c => c.originalIndex === originalIndex ? { ...c, status: 'DONE' } : c));
+    
+    setCards(prev => {
+      const idx = prev.findIndex(c => c.originalIndex === originalIndex);
+      if (idx !== -1 && prev[idx]._id) {
+        // Nếu thẻ này chưa có kết quả (lần đầu vuốt hoặc vuốt lại ở tab forgotten mà trước đó chưa lưu correct)
+        // Chúng ta sẽ add vào studyResults
+        setStudyResults(res => [...res, { flashcardId: prev[idx]._id as string, isCorrect: true }]);
+      }
+      return prev.map(c => c.originalIndex === originalIndex ? { ...c, status: 'DONE' } : c);
+    });
   };
 
   const handleSwipeLeft = (originalIndex: number) => {
@@ -55,7 +74,12 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
     setCards(prev => {
       const idx = prev.findIndex(c => c.originalIndex === originalIndex);
       if (idx === -1) return prev;
-      const newCard = { ...prev[idx], status: 'FORGOTTEN' as const };
+      
+      if (prev[idx]._id) {
+        setStudyResults(res => [...res, { flashcardId: prev[idx]._id as string, isCorrect: false }]);
+      }
+      
+      const newCard = { ...prev[idx], status: 'FORGOTTEN' as const, swipeCount: (prev[idx].swipeCount || 0) + 1 };
       // Đưa thẻ xuống cuối danh sách để lúc qua tab Quên thẻ này sẽ hiện sau
       return [...prev.slice(0, idx), ...prev.slice(idx + 1), newCard];
     });
@@ -66,20 +90,57 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
     setRememberedCount(0);
     setScore(0);
     setActiveTab('ALL');
+    setStudyResults([]); // Reset study results
+  };
+
+  const handleClose = () => {
+    // If the user hasn't finished but has swiped some cards, save the partial progress silently
+    const remainingCards = cards.filter(c => c.status !== 'DONE').length;
+    if (remainingCards > 0 && studyResults.length > 0 && deckId) {
+      const accessToken = useAuthStore.getState().accessToken;
+      if (accessToken) {
+        const uniqueResults = studyResults.filter((v, i, a) => a.findIndex(t => (t.flashcardId === v.flashcardId)) === i);
+        syncStudyProgress(accessToken, deckId, uniqueResults)
+          .then((res) => {
+            if (onProgressUpdate && typeof res.progress === 'number') {
+              onProgressUpdate(res.progress, res.nextReviewDate);
+            }
+          })
+          .catch(err => console.error('Failed to sync partial progress:', err));
+      }
+    }
+    onClose();
   };
 
   // Đếm tổng số thẻ PENDING hoặc FORGOTTEN (chưa DONE)
   const remainingCards = cards.filter(c => c.status !== 'DONE').length;
 
   React.useEffect(() => {
-    if (remainingCards === 0) {
+    if (remainingCards === 0 && !isSyncing) {
       const accessToken = useAuthStore.getState().accessToken;
       if (accessToken) {
+        // 1. Auto check-in streak
         checkInStreak(accessToken)
           .then(res => {
             useAuthStore.getState().setStreak(res.currentStreak);
           })
           .catch(err => console.error('Failed to auto check-in:', err));
+          
+        // 2. Sync Study Progress
+        if (deckId && studyResults.length > 0) {
+          setIsSyncing(true);
+          // Lọc trùng lặp kết quả (chỉ giữ kết quả đầu tiên cho mỗi thẻ nếu người dùng quẹt nhiều lần do forgotten)
+          const uniqueResults = studyResults.filter((v, i, a) => a.findIndex(t => (t.flashcardId === v.flashcardId)) === i);
+          
+          syncStudyProgress(accessToken, deckId, uniqueResults)
+            .then((res) => {
+              console.log('Study progress synced:', res);
+              if (onProgressUpdate && typeof res.progress === 'number') {
+                onProgressUpdate(res.progress, res.nextReviewDate);
+              }
+            })
+            .catch(err => console.error('Failed to sync study progress:', err));
+        }
       }
     }
   }, [remainingCards]);
@@ -118,7 +179,7 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
       <View style={styles.headerContainer}>
         {/* Top Row: Close | Title | Settings */}
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+          <TouchableOpacity onPress={handleClose} style={styles.iconButton}>
             <X size={24} color="#0B525B" />
           </TouchableOpacity>
 
@@ -176,7 +237,8 @@ export function FlashcardStudyScreen({ flashcards, noteTitle, onClose }: Flashca
 
             return (
               <FlashcardSwipeItem
-                key={`${card.question}-${card.originalIndex}`}
+                key={`${card.question}-${card.originalIndex}-${card.swipeCount || 0}`}
+                stackedIndex={index}
                 question={card.question}
                 options={card.options}
                 answer={card.answer}

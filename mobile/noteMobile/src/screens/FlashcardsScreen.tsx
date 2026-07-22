@@ -17,6 +17,7 @@ import { useLanguage } from '../components/LanguageProvider';
 import { useAuthStore } from '../stores/authStore';
 import { FlashcardDeck, getDecks, createDeck, deleteDeck } from '../services/flashcardClient';
 import { FlashcardDeckDetailScreen } from './FlashcardDeckDetailScreen';
+import { CustomAlert } from '../components/CustomAlert';
 
 export function FlashcardsScreen({ isActive }: { isActive?: boolean }) {
   const { colors } = useTheme();
@@ -37,6 +38,15 @@ export function FlashcardsScreen({ isActive }: { isActive?: boolean }) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newDeckTitle, setNewDeckTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Custom Alert State
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    isDestructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
   const fetchDecks = async () => {
     if (!accessToken) return;
@@ -74,27 +84,24 @@ export function FlashcardsScreen({ isActive }: { isActive?: boolean }) {
   };
 
   const handleDeleteDeck = (deckId: string) => {
-    Alert.alert(
-      language === 'en' ? 'Delete Deck' : 'Xóa bộ thẻ',
-      language === 'en' ? 'Are you sure you want to delete this deck and all its flashcards?' : 'Bạn có chắc chắn muốn xóa bộ thẻ này và tất cả thẻ bên trong?',
-      [
-        { text: language === 'en' ? 'Cancel' : 'Hủy', style: 'cancel' },
-        {
-          text: language === 'en' ? 'Delete' : 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            if (!accessToken) return;
-            try {
-              await deleteDeck(accessToken, deckId);
-              setDecks(decks.filter(d => d._id !== deckId));
-            } catch (e) {
-              console.error('Failed to delete deck:', e);
-              Alert.alert(language === 'en' ? 'Error' : 'Lỗi', language === 'en' ? 'Failed to delete deck.' : 'Không thể xóa bộ thẻ. Có thể thẻ này không tồn tại hoặc bạn không có quyền.');
-            }
-          },
-        },
-      ]
-    );
+    setAlertConfig({
+      visible: true,
+      title: language === 'en' ? 'Delete Deck' : 'Xóa bộ thẻ',
+      message: language === 'en' ? 'Are you sure you want to delete this deck and all its flashcards?' : 'Bạn có chắc chắn muốn xóa bộ thẻ này và tất cả thẻ bên trong?',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!accessToken) return;
+        setAlertConfig(null);
+        try {
+          await deleteDeck(accessToken, deckId);
+          setDecks(prev => prev.filter(d => d._id !== deckId));
+        } catch (e) {
+          console.error('Failed to delete deck:', e);
+          // Show error alert (using standard Alert for simplicity or open a new CustomAlert later)
+          Alert.alert(language === 'en' ? 'Error' : 'Lỗi', language === 'en' ? 'Failed to delete deck.' : 'Không thể xóa bộ thẻ. Có thể thẻ này không tồn tại hoặc bạn không có quyền.');
+        }
+      }
+    });
   };
 
   if (selectedDeck) {
@@ -102,6 +109,10 @@ export function FlashcardsScreen({ isActive }: { isActive?: boolean }) {
       <FlashcardDeckDetailScreen
         deck={selectedDeck}
         onClose={() => setSelectedDeck(null)}
+        onDeckUpdated={(updatedDeck) => {
+          setDecks(prev => prev.map(d => d._id === updatedDeck._id ? updatedDeck : d));
+          setSelectedDeck(updatedDeck);
+        }}
       />
     );
   }
@@ -153,9 +164,18 @@ export function FlashcardsScreen({ isActive }: { isActive?: boolean }) {
                   <Text style={[styles.deckTitle, { color: colors.onSurface }]} numberOfLines={1}>
                     {deck.title.replace('Flashcards from: ', '')}
                   </Text>
-                  <Text style={[styles.deckDate, { color: colors.onSurfaceVariant }]}>
-                    {new Date(deck.createdAt).toLocaleDateString()}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <Text style={[styles.deckDate, { color: colors.onSurfaceVariant, marginRight: 8 }]}>
+                      {new Date(deck.createdAt).toLocaleDateString()}
+                    </Text>
+                    {(deck.progress !== undefined && deck.progress > 0) && (
+                      <View style={{ backgroundColor: colors.primaryContainer, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, color: colors.onPrimaryContainer, fontWeight: 'bold' }}>
+                          {deck.progress}% {language === 'en' ? 'LEARNED' : 'ĐÃ HỌC'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <TouchableOpacity
                   style={styles.deleteButton}
@@ -242,6 +262,20 @@ export function FlashcardsScreen({ isActive }: { isActive?: boolean }) {
           </View>
         </View>
       </Modal>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertConfig?.visible || false}
+        title={alertConfig?.title || ''}
+        message={alertConfig?.message || ''}
+        isDestructive={alertConfig?.isDestructive}
+        onCancel={() => setAlertConfig(null)}
+        onConfirm={() => {
+          if (alertConfig?.onConfirm) {
+            alertConfig.onConfirm();
+          }
+        }}
+      />
     </View>
   );
 }
@@ -314,7 +348,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 100,
     right: 20,
     width: 56,
     height: 56,

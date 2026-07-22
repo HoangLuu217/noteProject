@@ -15,6 +15,7 @@ router.delete('/decks/:deckId', flashcardController.deleteDeck);
 // Routes cho Flashcard item trong Deck
 router.post('/decks/:deckId/flashcards', flashcardController.addFlashcardToDeck);
 router.get('/decks/:deckId/flashcards', flashcardController.getFlashcardsByDeck);
+router.post('/decks/:deckId/study', flashcardController.syncStudyProgress);
 
 // Cập nhật, xóa Flashcard độc lập (không cần deckId ở path URL nếu đã có flashcardId)
 router.put('/:flashcardId', flashcardController.updateFlashcard);

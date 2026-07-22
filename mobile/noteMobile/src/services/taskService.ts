@@ -11,7 +11,7 @@ export function mapBackendTaskToFrontend(backendTask: any): Task {
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const dd = String(d.getDate()).padStart(2, '0');
       date = `${yyyy}-${mm}-${dd}`;
-      
+
       const hh = String(d.getHours()).padStart(2, '0');
       const min = String(d.getMinutes()).padStart(2, '0');
       time = `${hh}:${min}`;
@@ -59,7 +59,6 @@ function mapFrontendTaskToBackend(frontendTask: Partial<Task>): any {
   if (frontendTask.planLabel !== undefined) {
     payload.planLabel = frontendTask.planLabel;
   }
-  
   if (frontendTask.date !== undefined || frontendTask.time !== undefined) {
     const dateStr = frontendTask.date || '';
     const timeStr = frontendTask.time || '';
@@ -69,7 +68,7 @@ function mapFrontendTaskToBackend(frontendTask: Partial<Task>): any {
         const year = parseInt(dateParts[0], 10);
         const month = parseInt(dateParts[1], 10) - 1;
         const day = parseInt(dateParts[2], 10);
-        
+
         let hours = 0;
         let minutes = 0;
         if (timeStr) {
@@ -79,7 +78,7 @@ function mapFrontendTaskToBackend(frontendTask: Partial<Task>): any {
             minutes = parseInt(match[2], 10);
           }
         }
-        
+
         const d = new Date(year, month, day, hours, minutes, 0, 0);
         payload.dueDate = d.toISOString();
       }
@@ -87,7 +86,7 @@ function mapFrontendTaskToBackend(frontendTask: Partial<Task>): any {
       payload.dueDate = null;
     }
   }
-  
+
   return payload;
 }
 
