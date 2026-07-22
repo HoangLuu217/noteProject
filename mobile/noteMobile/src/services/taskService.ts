@@ -1,7 +1,7 @@
 import { apiRequest } from './apiClient';
 import { Task } from '../types';
 
-function mapBackendTaskToFrontend(backendTask: any): Task {
+export function mapBackendTaskToFrontend(backendTask: any): Task {
   let date = '';
   let time = '';
   if (backendTask.dueDate) {
@@ -27,7 +27,11 @@ function mapBackendTaskToFrontend(backendTask: any): Task {
     date,
     time,
     type: backendTask.category || 'Personal',
-    theme: 'primary', // Will be calculated dynamically based on index in list or color preferences
+    theme: 'primary',
+    isMainTask: backendTask.isMainTask || false,
+    progress: backendTask.progress || 0,
+    parentTaskId: backendTask.parentTaskId ? (typeof backendTask.parentTaskId === 'object' ? backendTask.parentTaskId._id : backendTask.parentTaskId) : undefined,
+    parentTask: backendTask.parentTaskId && typeof backendTask.parentTaskId === 'object' ? { id: backendTask.parentTaskId._id, title: backendTask.parentTaskId.title } : undefined,
   };
 }
 
@@ -43,7 +47,18 @@ function mapFrontendTaskToBackend(frontendTask: Partial<Task>): any {
   if (frontendTask.type !== undefined) {
     payload.category = frontendTask.type;
   }
-
+  if (frontendTask.isMainTask !== undefined) {
+    payload.isMainTask = frontendTask.isMainTask;
+  }
+  if (frontendTask.progress !== undefined) {
+    payload.progress = frontendTask.progress;
+  }
+  if (frontendTask.parentTaskId !== undefined) {
+    payload.parentTaskId = frontendTask.parentTaskId;
+  }
+  if (frontendTask.planLabel !== undefined) {
+    payload.planLabel = frontendTask.planLabel;
+  }
   if (frontendTask.date !== undefined || frontendTask.time !== undefined) {
     const dateStr = frontendTask.date || '';
     const timeStr = frontendTask.time || '';

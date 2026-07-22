@@ -18,6 +18,7 @@ export const translations: Record<string, Record<string, string>> = {
     filterPending: "Pending",
     filterCompleted: "Completed",
     dailyProgress: "Daily Progress",
+    progress: "Progress",
     today: "Today",
     close: "Close",
 
@@ -225,6 +226,7 @@ export const translations: Record<string, Record<string, string>> = {
     filterPending: "Đang làm",
     filterCompleted: "Đã xong",
     dailyProgress: "Tiến độ trong ngày",
+    progress: "Tiến độ",
     today: "Hôm nay",
     close: "Đóng",
 

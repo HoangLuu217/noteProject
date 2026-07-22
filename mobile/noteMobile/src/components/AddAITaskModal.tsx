@@ -21,8 +21,8 @@ interface AddAITaskModalProps {
   onClose: () => void;
   onAdd: (
     taskData:
-      | { title: string; date: string; time: string; content: string; type: string }
-      | Array<{ title: string; date: string; time: string; content: string; type: string }>
+      | { id?: string; title: string; date: string; time: string; content: string; type: string; planLabel?: string }
+      | Array<{ id?: string; title: string; date: string; time: string; content: string; type: string; planLabel?: string }>
   ) => void;
   initialDate?: string;
 }
@@ -55,7 +55,7 @@ export function AddAITaskModal({ isOpen, onClose, onAdd, initialDate }: AddAITas
 
     try {
       const generatedList = await generateTaskFromPrompt(aiPrompt, initialDate || '', accessToken || '');
-      
+
       if (!generatedList || generatedList.length === 0) {
         throw new Error(t('aiError'));
       }
@@ -66,11 +66,13 @@ export function AddAITaskModal({ isOpen, onClose, onAdd, initialDate }: AddAITas
         ) || 'Personal';
 
         return {
+          id: generated.id,
           title: generated.title || 'AI Task',
           content: generated.content || '',
           date: generated.date || initialDate || '',
           time: generated.time || '',
           type: matchedType,
+          planLabel: generated.parentTask?.title || '',
         };
       });
 
@@ -115,7 +117,7 @@ export function AddAITaskModal({ isOpen, onClose, onAdd, initialDate }: AddAITas
               numberOfLines={4}
               editable={!isGenerating}
             />
-            
+
             <TouchableOpacity
               style={[styles.aiSubmitBtn, (isGenerating || !aiPrompt.trim()) && styles.aiSubmitBtnDisabled]}
               onPress={handleGenerateWithAI}

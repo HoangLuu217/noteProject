@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 120, // Keep floating above the navigation bar
+    bottom: 100, // Đồng bộ độ cao với màn hình Expenses (100)
     left: 20,
     right: 20,
     flexDirection: 'row',

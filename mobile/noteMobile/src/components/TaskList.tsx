@@ -10,9 +10,10 @@ interface TaskListProps {
   tasks: Task[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onPressTask: (task: Task) => void;
 }
 
-export function TaskList({ tasks, onToggle, onDelete }: TaskListProps) {
+export function TaskList({ tasks, onToggle, onDelete, onPressTask }: TaskListProps) {
   const { colors } = useTheme();
   const { t } = useLanguage();
   const styles = useStyles(colors);
@@ -66,17 +67,42 @@ export function TaskList({ tasks, onToggle, onDelete }: TaskListProps) {
                 {task.completed && <Check size={20} color="#fff" strokeWidth={3} />}
               </TouchableOpacity>
 
-              <View style={styles.content}>
+              <TouchableOpacity
+                style={styles.clickableContent}
+                activeOpacity={0.7}
+                onPress={() => onPressTask(task)}
+              >
+                {task.parentTask && (
+                  <View style={[styles.parentBadge, task.completed && styles.tagCompleted]}>
+                    <Text style={[styles.parentBadgeText, task.completed && styles.tagTextCompleted]}>
+                      📁 {task.parentTask.title.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+
                 <Text style={[styles.title, task.completed && styles.titleCompleted]}>
                   {task.title}
                 </Text>
 
-                {(task.content || task.description || task.time || task.type) && (
+                {(task.content || task.description || task.time || task.type || task.isMainTask) && (
                   <View style={styles.metaStack}>
                     {(task.content || task.description) && (
                       <Text style={[styles.desc, task.completed && styles.descCompleted]}>
                         {task.content || task.description}
                       </Text>
+                    )}
+
+                    {task.isMainTask && (
+                      <View style={styles.progressContainer}>
+                        <View style={styles.progressHeader}>
+                          <Text style={styles.progressText}>
+                            {t('progress') || 'Progress'}: {task.progress || 0}%
+                          </Text>
+                        </View>
+                        <View style={styles.progressTrack}>
+                          <View style={[styles.progressFill, { width: `${task.progress || 0}%` }]} />
+                        </View>
+                      </View>
                     )}
 
                     <View style={styles.tags}>
@@ -114,7 +140,7 @@ export function TaskList({ tasks, onToggle, onDelete }: TaskListProps) {
                     </View>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => onDelete(task.id)}
@@ -157,7 +183,7 @@ const useStyles = createThemedStyles((colors) => ({
     flexShrink: 0,
     marginTop: 4,
   },
-  content: {
+  clickableContent: {
     flex: 1,
     paddingTop: 4,
   },
@@ -223,5 +249,47 @@ const useStyles = createThemedStyles((colors) => ({
   deleteBtn: {
     padding: 8,
     marginTop: 2,
+  },
+  progressContainer: {
+    marginTop: 6,
+    marginBottom: 4,
+    gap: 4,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 12,
+    color: colors.primary,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 100,
+    backgroundColor: colors.surfaceContainerHigh,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 100,
+  },
+  parentBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary + '15',
+    borderColor: colors.primary + '30',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  parentBadgeText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 11,
+    color: colors.primary,
+    letterSpacing: 0.5,
   },
 }));

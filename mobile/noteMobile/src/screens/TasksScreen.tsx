@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TaskList } from '../components/TaskList';
 import { AddTaskModal } from '../components/AddTaskModal';
 import { AddAITaskModal } from '../components/AddAITaskModal';
+import { TaskDetailModal } from '../components/TaskDetailModal';
 import { Task } from '../types';
 import { theme, createThemedStyles } from '../theme';
 import { DateSelector } from '../components/DateSelector';
@@ -114,10 +115,12 @@ export function TasksScreen({
   setSwipeEnabled,
   tasks,
   setTasks,
+  loadTasks,
 }: {
   setSwipeEnabled?: (enabled: boolean) => void;
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  loadTasks: () => Promise<void>;
 }) {
   const { colors } = useTheme();
   const { t, language } = useLanguage();
@@ -125,6 +128,7 @@ export function TasksScreen({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [selectedDetailTask, setSelectedDetailTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -132,6 +136,13 @@ export function TasksScreen({
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
   const accessToken = useAuthStore((s) => s.accessToken);
+
+  const planSuggestions = useMemo(() => {
+    const titles = tasks
+      .filter((t) => t.isMainTask && t.title)
+      .map((t) => t.title);
+    return Array.from(new Set(titles)).filter(Boolean);
+  }, [tasks]);
 
   const formatShortDate = (dateStr: string) => {
     if (!dateStr) return '';
@@ -183,6 +194,7 @@ export function TasksScreen({
         notificationId,
       });
 
+      // Update local state temporarily for snappy UI
       setTasks((prev) =>
         prev.map((t) => {
           if (t.id === id) {
@@ -191,6 +203,9 @@ export function TasksScreen({
           return t;
         })
       );
+
+      // Sync from server to get accurate progress changes on parents
+      await loadTasks();
     } catch (e) {
       console.error('Failed to toggle task:', e);
       Alert.alert(t('error') || 'Error', 'Failed to update task status on server');
@@ -207,17 +222,34 @@ export function TasksScreen({
 
       await deleteTaskFromServer(accessToken, id);
 
-      setTasks(tasks.filter((task) => task.id !== id));
+      // Reload tasks from server to sync cascade deletions and parent progress
+      await loadTasks();
     } catch (e) {
       console.error('Failed to delete task:', e);
       Alert.alert(t('error') || 'Error', 'Failed to delete task from server');
     }
   };
 
+  const handleSaveDetail = async (id: string, updatedData: Partial<Task> & { planLabel?: string }) => {
+    if (!accessToken) return;
+    try {
+      console.log('📱 [Mobile] Saving task detail for ID:', id, 'Payload:', JSON.stringify(updatedData));
+      await updateTaskOnServer(accessToken, id, updatedData);
+      await loadTasks();
+    } catch (e: any) {
+      console.error('Failed to save task detail:', e);
+      throw e;
+    }
+  };
+
+  const handleDeleteDetail = async (id: string) => {
+    await handleDelete(id);
+  };
+
   const handleAdd = async (
     taskData:
-      | { title: string; time: string; content: string; type: string; date?: string }
-      | Array<{ title: string; time: string; content: string; type: string; date?: string }>
+      | { id?: string; title: string; time: string; content: string; type: string; date?: string; planLabel?: string }
+      | Array<{ id?: string; title: string; time: string; content: string; type: string; date?: string; planLabel?: string }>
   ) => {
     if (!accessToken) {
       console.log('📱 [Mobile] Cannot add task: No access token');
@@ -225,22 +257,28 @@ export function TasksScreen({
     }
     console.log('📱 [Mobile] handleAdd invoked with data:', JSON.stringify(taskData));
     const dataList = Array.isArray(taskData) ? taskData : [taskData];
-    const newTasks: Task[] = [];
 
     try {
       for (let i = 0; i < dataList.length; i++) {
         const item = dataList[i];
-        console.log('📱 [Mobile] Creating task on server for item:', JSON.stringify(item));
+        let savedTask: Task;
 
-        const savedTask = await createTaskOnServer(accessToken, {
-          title: item.title,
-          content: item.content,
-          date: item.date,
-          time: item.time,
-          type: item.type,
-          completed: false,
-        });
-        console.log('📱 [Mobile] Created task on server successfully! Result:', JSON.stringify(savedTask));
+        if (item.id) {
+          console.log('📱 [Mobile] Task already saved on server, skipping creation:', item.id);
+          savedTask = item as Task;
+        } else {
+          console.log('📱 [Mobile] Creating task on server for item:', JSON.stringify(item));
+          savedTask = await createTaskOnServer(accessToken, {
+            title: item.title,
+            content: item.content,
+            date: item.date,
+            time: item.time,
+            type: item.type,
+            completed: false,
+            planLabel: item.planLabel,
+          });
+          console.log('📱 [Mobile] Created task on server successfully! Result:', JSON.stringify(savedTask));
+        }
 
         let notificationId: string | undefined = undefined;
         if (item.date && item.time) {
@@ -251,17 +289,9 @@ export function TasksScreen({
             await updateTaskOnServer(accessToken, savedTask.id, { notificationId });
           }
         }
-
-        newTasks.push(savedTask);
       }
 
-      setTasks((prevTasks) => {
-        const tasksWithThemes = newTasks.map((t, idx) => ({
-          ...t,
-          theme: ((prevTasks.length + idx) % 2 === 0 ? 'primary' : 'secondary') as 'primary' | 'secondary',
-        }));
-        return [...tasksWithThemes, ...prevTasks];
-      });
+      await loadTasks();
     } catch (e) {
       console.error('Failed to create task on server:', e);
       Alert.alert(
@@ -403,6 +433,7 @@ export function TasksScreen({
               })}
             onToggle={handleToggle}
             onDelete={handleDelete}
+            onPressTask={(task) => setSelectedDetailTask(task)}
           />
         </View>
       </ScrollView>
@@ -466,6 +497,7 @@ export function TasksScreen({
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAdd}
         initialDate={startDate ? startDate : formatDate(selectedDate)}
+        planSuggestions={planSuggestions}
       />
 
       <AddAITaskModal
@@ -473,6 +505,15 @@ export function TasksScreen({
         onClose={() => setIsAIModalOpen(false)}
         onAdd={handleAdd}
         initialDate={startDate ? startDate : formatDate(selectedDate)}
+      />
+
+      <TaskDetailModal
+        isOpen={selectedDetailTask !== null}
+        onClose={() => setSelectedDetailTask(null)}
+        task={selectedDetailTask}
+        onSave={handleSaveDetail}
+        onDelete={handleDeleteDetail}
+        planSuggestions={planSuggestions}
       />
 
       <DateRangeCalendarModal

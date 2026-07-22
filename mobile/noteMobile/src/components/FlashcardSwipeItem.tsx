@@ -41,15 +41,25 @@ export function FlashcardSwipeItem({
   const position = useRef(new Animated.ValueXY()).current;
   const flipAnim = useRef(new Animated.Value(0)).current;
 
-  // Lưu vị trí chạm tay để phân biệt Tap (lật) và Scroll (cuộn)
   const touchY = useRef(0);
   const touchX = useRef(0);
+  const lastTap = useRef(0);
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      onStartShouldSetPanResponderCapture: (e, gestureState) => {
+        const now = Date.now();
+        if (now - lastTap.current < 300) {
+          handleFlip(); // Lật thẻ nếu nhấn đúp
+          lastTap.current = 0;
+        } else {
+          lastTap.current = now;
+        }
+        return false; // Không chặn sự kiện để ScrollView vẫn cuộn được
+      },
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        // Chủ động "giật" lấy gesture nếu người dùng vuốt ngang rõ rệt (bất chấp ScrollView)
+        return Math.abs(gestureState.dx) > 15 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
       },
       onPanResponderMove: (_, gestureState) => {
         position.setValue({ x: gestureState.dx, y: 0 });
@@ -169,9 +179,9 @@ export function FlashcardSwipeItem({
               },
             ]}
           >
-            <Pressable style={styles.tagContainer} onPress={handleFlip}>
+            <TouchableOpacity style={[styles.tagContainer, { width: '100%', alignItems: 'center', justifyContent: 'center' }]} onPress={handleFlip}>
               <Text style={styles.tagText}>{t('flashcardQuestion')}</Text>
-            </Pressable>
+            </TouchableOpacity>
             <ScrollView
               style={styles.centerContent}
               contentContainerStyle={styles.centerContentContainer}
@@ -235,7 +245,7 @@ export function FlashcardSwipeItem({
             ]}
             pointerEvents={isFlipped ? 'auto' : 'none'}
           >
-            <TouchableOpacity style={[styles.tagContainer, { backgroundColor: 'rgba(255,255,255,0.3)' }]} onPress={handleFlip}>
+            <TouchableOpacity style={[styles.tagContainer, { backgroundColor: 'rgba(255,255,255,0.3)', width: '100%', alignItems: 'center', justifyContent: 'center' }]} onPress={handleFlip}>
               <Text style={[styles.tagText, { color: colors.onPrimaryContainer }]}>{t('flashcardAnswer')}</Text>
             </TouchableOpacity>
             <ScrollView

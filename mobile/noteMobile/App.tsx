@@ -142,24 +142,24 @@ function MainApp() {
 
   const { user, accessToken, updateProfile, setStreak } = useAuthStore();
 
+  const loadTasks = async () => {
+    if (accessToken) {
+      console.log('📱 [Mobile] Fetching tasks from server...');
+      try {
+        const fetched = await fetchTasksFromServer(accessToken);
+        console.log(`📱 [Mobile] Fetched ${fetched.length} tasks successfully!`);
+        setTasks(fetched);
+      } catch (e) {
+        console.error('📱 [Mobile] Failed to load tasks from server:', e);
+      }
+    } else {
+      console.log('📱 [Mobile] No access token found. Resetting tasks.');
+      setTasks([]);
+    }
+  };
+
   // Load tasks on mount or token change
   useEffect(() => {
-    async function loadTasks() {
-      if (accessToken) {
-        console.log('📱 [Mobile] Fetching tasks from server...');
-        try {
-          const fetched = await fetchTasksFromServer(accessToken);
-          console.log(`📱 [Mobile] Fetched ${fetched.length} tasks successfully!`);
-          setTasks(fetched);
-        } catch (e) {
-          console.error('📱 [Mobile] Failed to load tasks from server:', e);
-        }
-      } else {
-        console.log('📱 [Mobile] No access token found. Resetting tasks.');
-        setTasks([]);
-      }
-    }
-
     async function handleStreakCheckIn() {
       if (accessToken) {
         try {
@@ -312,7 +312,7 @@ function MainApp() {
       />
 
       <View style={styles.content}>
-        <View style={[styles.page, { display: activeTab === 'tasks' ? 'flex' : 'none' }]}><TasksScreen tasks={tasks} setTasks={setTasks} setSwipeEnabled={setSwipeEnabled} /></View>
+        <View style={[styles.page, { display: activeTab === 'tasks' ? 'flex' : 'none' }]}><TasksScreen tasks={tasks} setTasks={setTasks} setSwipeEnabled={setSwipeEnabled} loadTasks={loadTasks} /></View>
         <View style={[styles.page, { display: activeTab === 'focus' ? 'flex' : 'none' }]}><FocusScreen /></View>
         <View style={[styles.page, { display: activeTab === 'notes' ? 'flex' : 'none' }]}><NotesScreen avatarUrl={avatarUrl} /></View>
         <View style={[styles.page, { display: activeTab === 'flashcards' ? 'flex' : 'none' }]}><FlashcardsScreen isActive={activeTab === 'flashcards'} /></View>

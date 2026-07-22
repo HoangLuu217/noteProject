@@ -109,7 +109,7 @@ function WheelColumn({
   );
 }
 
-function TimePicker({
+export function TimePicker({
   onClose,
   onConfirm,
   initialTime,
@@ -234,7 +234,7 @@ function TimePicker({
   );
 }
 
-function CalendarPicker({
+export function CalendarPicker({
   selectedDate,
   onSelect,
   onClose,
@@ -434,11 +434,12 @@ function validateTaskDateTime(t: (key: string) => string, dateStr?: string, time
 interface AddTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (taskData: { title: string; date: string; time: string; content: string; type: string }) => void;
+  onAdd: (taskData: { title: string; date: string; time: string; content: string; type: string; planLabel?: string }) => void;
   initialDate?: string;
+  planSuggestions?: string[];
 }
 
-export function AddTaskModal({ isOpen, onClose, onAdd, initialDate }: AddTaskModalProps) {
+export function AddTaskModal({ isOpen, onClose, onAdd, initialDate, planSuggestions }: AddTaskModalProps) {
   const { colors } = useTheme();
   const { t } = useLanguage();
   const styles = useStyles(colors);
@@ -447,6 +448,7 @@ export function AddTaskModal({ isOpen, onClose, onAdd, initialDate }: AddTaskMod
   const [time, setTime] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState('Personal');
+  const [planLabel, setPlanLabel] = useState('');
   const [date, setDate] = useState('');
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
@@ -466,6 +468,7 @@ export function AddTaskModal({ isOpen, onClose, onAdd, initialDate }: AddTaskMod
   useEffect(() => {
     if (isOpen) {
       setError(null);
+      setPlanLabel('');
       if (initialDate || initialDate === '') {
         setDate(initialDate || '');
       }
@@ -481,11 +484,12 @@ export function AddTaskModal({ isOpen, onClose, onAdd, initialDate }: AddTaskMod
       return;
     }
 
-    onAdd({ title, time, content, type, date });
+    onAdd({ title, time, content, type, date, planLabel: planLabel.trim() });
     setTitle('');
     setTime('');
     setContent('');
     setType('Personal');
+    setPlanLabel('');
     setError(null);
     onClose();
   };
@@ -526,6 +530,34 @@ export function AddTaskModal({ isOpen, onClose, onAdd, initialDate }: AddTaskMod
                 multiline
                 numberOfLines={3}
               />
+
+              <Text style={styles.label}>{t('planLabel') || 'Plan Label / Nhãn dán kế hoạch'}</Text>
+              <TextInput
+                value={planLabel}
+                onChangeText={setPlanLabel}
+                placeholder={t('planLabelPlaceholder') || 'e.g. Ôn thi học kỳ...'}
+                placeholderTextColor={colors.outlineVariant}
+                style={styles.input}
+              />
+
+              {planSuggestions && planSuggestions.length > 0 && (
+                <View style={styles.chipsContainer}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
+                    {planSuggestions.map((plan) => (
+                      <TouchableOpacity
+                        key={plan}
+                        style={[styles.chip, planLabel === plan && styles.chipActive]}
+                        onPress={() => setPlanLabel(plan)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.chipText, planLabel === plan && styles.chipTextActive]}>
+                          📁 {plan}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
 
               <Text style={styles.label}>{t('taskDate')}</Text>
               <TouchableOpacity
@@ -972,5 +1004,30 @@ const useStyles = createThemedStyles((colors) => ({
   },
   dayCellTextPast: {
     color: colors.outlineVariant,
+  },
+  chipsContainer: {
+    marginBottom: 16,
+    marginTop: -4,
+  },
+  chip: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+  },
+  chipTextActive: {
+    color: '#ffffff',
   },
 }));
