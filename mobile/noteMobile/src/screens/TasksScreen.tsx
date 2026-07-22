@@ -309,7 +309,7 @@ export function TasksScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Date selector */}
-        <View style={{ marginTop: 8, marginBottom: 24 }}>
+        <View style={{ marginTop: 8, marginBottom: 12 }}>
           <DateSelector
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
@@ -319,7 +319,7 @@ export function TasksScreen({
           />
         </View>
 
-        <View style={{ paddingHorizontal: 24 }}>
+        <View style={{ paddingHorizontal: 12 }}>
           {/* Header Action Row (Filters) */}
           <View style={styles.headerActionRow}>
             <View style={styles.filterRow}>
@@ -580,7 +580,7 @@ const useStyles = createThemedStyles((colors) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 12,
     width: '100%',
   },
   filterRow: {
@@ -610,16 +610,16 @@ const useStyles = createThemedStyles((colors) => ({
     zIndex: 99,
   },
   filterPill: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 100,
-    borderWidth: 2,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 2,
   },
   filterPillActive: {
@@ -632,7 +632,7 @@ const useStyles = createThemedStyles((colors) => ({
   },
   filterText: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 14,
+    fontSize: 13,
     textTransform: 'capitalize',
   },
   filterTextActive: {
@@ -642,16 +642,16 @@ const useStyles = createThemedStyles((colors) => ({
     color: colors.outline,
   },
   progressContainer: {
-    marginBottom: 24,
-    padding: 16,
+    marginBottom: 12,
+    padding: 12,
     backgroundColor: colors.surfaceContainer,
-    borderRadius: 24,
-    borderWidth: 2,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: 'rgba(0, 0, 0, 0.05)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 2,
   },
   progressTextRow: {

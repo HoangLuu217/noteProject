@@ -18,6 +18,13 @@ export function TaskList({ tasks, onToggle, onDelete, onPressTask }: TaskListPro
   const { t } = useLanguage();
   const styles = useStyles(colors);
 
+  const formatDateTimeText = (time?: string, date?: string) => {
+    if (time && date) {
+      return `${time} • ${date}`;
+    }
+    return time || date || '';
+  };
+
   return (
     <View style={styles.list}>
       {tasks.map((task) => {
@@ -49,84 +56,87 @@ export function TaskList({ tasks, onToggle, onDelete, onPressTask }: TaskListPro
           checkboxBorder = colors.secondaryContainer;
         }
 
+        const hasDateTime = Boolean(task.time || task.date);
+        const dateTimeText = formatDateTimeText(task.time, task.date);
+
         return (
-          <View key={task.id} style={{ marginBottom: 8 }}>
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, opacity: cardOpacity }]}>
-              <TouchableOpacity
-                onPress={() => onToggle(task.id)}
-                style={[
-                  styles.checkbox,
-                  {
-                    backgroundColor: checkboxBg,
-                    borderColor: checkboxBorder,
-                    borderWidth: task.completed ? 0 : 4,
-                  },
-                ]}
-                activeOpacity={0.7}
-              >
-                {task.completed && <Check size={20} color="#fff" strokeWidth={3} />}
-              </TouchableOpacity>
+          <View key={task.id} style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, opacity: cardOpacity }]}>
+            <TouchableOpacity
+              onPress={() => onToggle(task.id)}
+              style={[
+                styles.checkbox,
+                {
+                  backgroundColor: checkboxBg,
+                  borderColor: checkboxBorder,
+                  borderWidth: task.completed ? 0 : 2,
+                },
+              ]}
+              activeOpacity={0.7}
+            >
+              {task.completed && <Check size={14} color="#fff" strokeWidth={3} />}
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.clickableContent}
-                activeOpacity={0.7}
-                onPress={() => onPressTask(task)}
+            <TouchableOpacity
+              style={styles.clickableContent}
+              activeOpacity={0.7}
+              onPress={() => onPressTask(task)}
+            >
+              {task.parentTask && (
+                <View style={[styles.parentBadge, task.completed && styles.tagCompleted]}>
+                  <Text
+                    style={[styles.parentBadgeText, task.completed && styles.tagTextCompleted]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    📁 {task.parentTask.title.toUpperCase()}
+                  </Text>
+                </View>
+              )}
+
+              <Text
+                style={[styles.title, task.completed && styles.titleCompleted]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
               >
-                {task.parentTask && (
-                  <View style={[styles.parentBadge, task.completed && styles.tagCompleted]}>
-                    <Text style={[styles.parentBadgeText, task.completed && styles.tagTextCompleted]}>
-                      📁 {task.parentTask.title.toUpperCase()}
+                {task.title}
+              </Text>
+
+              {(task.content || task.description || hasDateTime || task.type || task.isMainTask) && (
+                <View style={styles.metaStack}>
+                  {(task.content || task.description) && (
+                    <Text
+                      style={[styles.desc, task.completed && styles.descCompleted]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {task.content || task.description}
                     </Text>
-                  </View>
-                )}
+                  )}
 
-                <Text style={[styles.title, task.completed && styles.titleCompleted]}>
-                  {task.title}
-                </Text>
-
-                {(task.content || task.description || task.time || task.type || task.isMainTask) && (
-                  <View style={styles.metaStack}>
-                    {(task.content || task.description) && (
-                      <Text style={[styles.desc, task.completed && styles.descCompleted]}>
-                        {task.content || task.description}
-                      </Text>
-                    )}
-
-                    {task.isMainTask && (
-                      <View style={styles.progressContainer}>
-                        <View style={styles.progressHeader}>
-                          <Text style={styles.progressText}>
-                            {t('progress') || 'Progress'}: {task.progress || 0}%
-                          </Text>
-                        </View>
-                        <View style={styles.progressTrack}>
-                          <View style={[styles.progressFill, { width: `${task.progress || 0}%` }]} />
-                        </View>
+                  {task.isMainTask && (
+                    <View style={styles.progressContainer}>
+                      <View style={styles.progressHeader}>
+                        <Text style={styles.progressText}>
+                          {t('progress') || 'Progress'}: {task.progress || 0}%
+                        </Text>
                       </View>
-                    )}
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${task.progress || 0}%` }]} />
+                      </View>
+                    </View>
+                  )}
 
+                  {(hasDateTime || task.type) && (
                     <View style={styles.tags}>
-                      {task.time && (
+                      {hasDateTime && (
                         <View style={[styles.tag, task.completed && styles.tagCompleted]}>
                           <Clock
-                            size={12}
+                            size={11}
                             color={task.completed ? colors.outline : colors.onSurfaceVariant}
-                            strokeWidth={3}
+                            strokeWidth={2.5}
                           />
                           <Text style={[styles.tagText, task.completed && styles.tagTextCompleted]}>
-                            {task.time}
-                          </Text>
-                        </View>
-                      )}
-                      {task.date && (
-                        <View style={[styles.tag, task.completed && styles.tagCompleted]}>
-                          <Calendar
-                            size={12}
-                            color={task.completed ? colors.outline : colors.onSurfaceVariant}
-                            strokeWidth={3}
-                          />
-                          <Text style={[styles.tagText, task.completed && styles.tagTextCompleted]}>
-                            {task.date}
+                            {dateTimeText}
                           </Text>
                         </View>
                       )}
@@ -138,18 +148,18 @@ export function TaskList({ tasks, onToggle, onDelete, onPressTask }: TaskListPro
                         </View>
                       )}
                     </View>
-                  </View>
-                )}
-              </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => onDelete(task.id)}
-                style={styles.deleteBtn}
-                activeOpacity={0.6}
-              >
-                <Trash2 size={24} color={colors.outlineVariant} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={() => onDelete(task.id)}
+              style={styles.deleteBtn}
+              activeOpacity={0.6}
+            >
+              <Trash2 size={18} color={colors.outlineVariant} />
+            </TouchableOpacity>
           </View>
         );
       })}
@@ -159,53 +169,53 @@ export function TaskList({ tasks, onToggle, onDelete, onPressTask }: TaskListPro
 
 const useStyles = createThemedStyles((colors) => ({
   list: {
-    gap: 24,
+    gap: 10,
   },
   card: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 20,
-    borderRadius: 24,
-    borderWidth: 2,
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-    gap: 16,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+    gap: 10,
   },
   checkbox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    marginTop: 4,
   },
   clickableContent: {
     flex: 1,
-    paddingTop: 4,
+    justifyContent: 'center',
   },
   title: {
     fontFamily: 'Quicksand-SemiBold',
-    fontSize: 20,
+    fontSize: 15,
     color: colors.onSurface,
-    lineHeight: 24,
+    lineHeight: 20,
   },
   titleCompleted: {
     color: colors.onSurfaceVariant,
     textDecorationLine: 'line-through',
   },
   metaStack: {
-    gap: 8,
-    marginTop: 8,
+    gap: 4,
+    marginTop: 4,
   },
   desc: {
     fontFamily: 'Quicksand-Medium',
-    fontSize: 14,
+    fontSize: 13,
     color: colors.onSurfaceVariant,
-    lineHeight: 18,
+    lineHeight: 17,
   },
   descCompleted: {
     color: colors.outline,
@@ -213,12 +223,13 @@ const useStyles = createThemedStyles((colors) => ({
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
+    marginTop: 2,
   },
   tag: {
     backgroundColor: colors.surfaceContainerHigh,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 100,
     flexDirection: 'row',
     alignItems: 'center',
@@ -229,31 +240,31 @@ const useStyles = createThemedStyles((colors) => ({
   },
   tagText: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 12,
+    fontSize: 11,
     color: colors.onSurfaceVariant,
   },
   tagType: {
-    backgroundColor: 'rgba(76, 201, 240, 0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(76, 201, 240, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 100,
   },
   tagTypeText: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 12,
+    fontSize: 11,
     color: colors.primary,
   },
   tagTextCompleted: {
     color: colors.outline,
   },
   deleteBtn: {
-    padding: 8,
-    marginTop: 2,
+    padding: 6,
+    alignSelf: 'center',
   },
   progressContainer: {
-    marginTop: 6,
-    marginBottom: 4,
-    gap: 4,
+    marginTop: 4,
+    marginBottom: 2,
+    gap: 2,
   },
   progressHeader: {
     flexDirection: 'row',
@@ -262,11 +273,11 @@ const useStyles = createThemedStyles((colors) => ({
   },
   progressText: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 12,
+    fontSize: 11,
     color: colors.primary,
   },
   progressTrack: {
-    height: 6,
+    height: 5,
     borderRadius: 100,
     backgroundColor: colors.surfaceContainerHigh,
     overflow: 'hidden',
@@ -281,14 +292,14 @@ const useStyles = createThemedStyles((colors) => ({
     backgroundColor: colors.primary + '15',
     borderColor: colors.primary + '30',
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
   },
   parentBadgeText: {
     fontFamily: 'Quicksand-Bold',
-    fontSize: 11,
+    fontSize: 10,
     color: colors.primary,
     letterSpacing: 0.5,
   },
